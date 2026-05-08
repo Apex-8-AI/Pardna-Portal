@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pardna Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0d;
+    --card: #161616;
+    --border: #242424;
+    --gold: #c9a84c;
+    --text: #f0ede6;
+    --muted: #6b6560;
+    --green: #4caf7d;
+    --red: #e05a5a;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .login-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+
+  .login-logo { font-size: 26px; font-weight: 700; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; }
+  .login-sub { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
+  .login-box h2 { font-size: 16px; font-weight: 600; margin: 28px 0 20px; }
+
+  .field { margin-bottom: 14px; text-align: left; }
+  .field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px; }
+  .field select, .field input { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border 0.2s; }
+  .field select:focus, .field input:focus { border-color: var(--gold); }
+  .field select option { background: #1a1a1a; }
+
+  .btn-primary { width: 100%; padding: 12px; background: var(--gold); color: #000; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 6px; letter-spacing: 0.5px; transition: opacity 0.2s; }
+  .btn-primary:hover { opacity: 0.88; }
+  .login-error { color: var(--red); font-size: 12px; margin-top: 10px; }
+
+  #portal { display: none; }
+
+  .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .topbar-logo { font-size: 18px; font-weight: 700; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
+  .topbar-user { font-size: 12px; color: var(--muted); }
+  .topbar-user span { color: var(--text); font-weight: 600; }
+  .logout-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 14px; font-family: 'DM Sans', sans-serif; }
+  .logout-btn:hover { color: var(--text); border-color: var(--muted); }
+
+  nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; overflow-x: auto; }
+  .nav-item { padding: 12px 18px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; font-weight: 500; }
+  .nav-item:hover { color: var(--text); }
+  .nav-item.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
+
+  .content { padding: 28px 24px; max-width: 860px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 12px; color: var(--muted); margin-bottom: 24px; }
+
+  .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .card-value { font-size: 26px; font-weight: 700; }
+  .card-value.gold { color: var(--gold); }
+  .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.green { background: rgba(76,175,125,0.15); color: var(--green); }
+  .badge.red { background: rgba(224,90,90,0.15); color: var(--red); }
+  .badge.gold { background: rgba(201,168,76,0.15); color: var(--gold); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { font-size: 13px; padding: 12px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+
+  .progress-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .progress-fill { height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.6s ease; }
+
+  .announce-item { margin-bottom: 14px; }
+  .announce-date { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .announce-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .announce-body { font-size: 13px; color: #a0998f; line-height: 1.6; }
+
+  .admin-tag { font-size: 10px; background: rgba(201,168,76,0.15); color: var(--gold); padding: 2px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+
+  @media (max-width: 500px) {
+    .content { padding: 20px 16px; }
+    .card-value { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">Pardna</div>
+    <div class="login-sub">Member Portal</div>
+    <h2>Sign In</h2>
+    <div class="field">
+      <label>Select Your Name</label>
+      <select id="name-select"><option value="">— choose —</option></select>
+    </div>
+    <div class="field">
+      <label>PIN</label>
+      <input type="password" id="pin-input" placeholder="Enter your PIN" maxlength="6"/>
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Enter Portal</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="portal">
+  <div class="topbar">
+    <div class="topbar-logo">Pardna</div>
+    <div style="display:flex;align-items:center;">
+      <div class="topbar-user">Signed in as <span id="topbar-name"></span></div>
+      <button class="logout-btn" onclick="doLogout()">Log out</button>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-item active" onclick="showPage('dashboard',this)">Dashboard</div>
+    <div class="nav-item" onclick="showPage('members',this)">Members</div>
+    <div class="nav-item" onclick="showPage('contributions',this)">My Contributions</div>
+    <div class="nav-item" onclick="showPage('announcements',this)">Announcements</div>
+  </nav>
+  <div class="content">
+
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub" id="dash-sub"></div>
+      <div class="cards-row">
+        <div class="card"><div class="card-label">Total Pot</div><div class="card-value gold" id="d-pot"></div></div>
+        <div class="card"><div class="card-label">Your Hand</div><div class="card-value gold" id="d-hand"></div><div class="card-sub" id="d-hand-sub"></div></div>
+        <div class="card"><div class="card-label">Current Cycle</div><div class="card-value" id="d-cycle"></div><div class="card-sub" id="d-cycle-sub"></div></div>
+        <div class="card"><div class="card-label">Next Draw</div><div class="card-value" style="font-size:16px;margin-top:4px;" id="d-draw"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-label" style="margin-bottom:10px;">Cycle Progress</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span id="d-prog-label"></span><span id="d-prog-pct"></span></div>
+        <div class="progress-bar"><div class="progress-fill" id="d-prog-fill"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;" id="d-prog-sub"></div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="card-label" style="margin-bottom:12px;">This Cycle — Payment Status</div>
+        <div id="d-avatars" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;" id="d-paid-summary"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-members">
+      <div class="page-title">Members</div>
+      <div class="page-sub" id="mem-sub"></div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Hand #</th><th>This Cycle</th><th>Payout</th></tr></thead>
+          <tbody id="members-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page" id="page-contributions">
+      <div class="page-title">My Contributions</div>
+      <div class="page-sub" id="con-sub"></div>
+      <div class="cards-row">
+        <div class="card"><div class="card-label">Total Contributed</div><div class="card-value gold" id="con-total"></div></div>
+        <div class="card"><div class="card-label">My Payout</div><div class="card-value" id="con-payout"></div><div class="card-sub" id="con-payout-sub"></div></div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Cycle</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
+          <tbody id="con-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page" id="page-announcements">
+      <div class="page-title">Announcements</div>
+      <div class="page-sub">Updates from your organizer</div>
+      <div id="announce-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const GROUP = {
+  name: "Pardna Circle A",
+  cycleLength: 12,
+  currentCycle: 4,
+  handAmount: 500,
+  drawDate: "June 1, 2026",
+  totalPot: 6000,
+};
+
+const MEMBERS = [
+  { name: "Michael",  hand: 3,  pin: "1234", paid: true,  paidOut: false, role: "admin" },
+  { name: "Dianne",   hand: 1,  pin: "2222", paid: true,  paidOut: true  },
+  { name: "Tricia",   hand: 5,  pin: "3333", paid: true,  paidOut: false },
+  { name: "Marvin",   hand: 7,  pin: "4444", paid: false, paidOut: false },
+  { name: "Sharon",   hand: 2,  pin: "5555", paid: true,  paidOut: true  },
+  { name: "Curtis",   hand: 9,  pin: "6666", paid: true,  paidOut: false },
+  { name: "Yolanda",  hand: 4,  pin: "7777", paid: false, paidOut: false },
+  { name: "Devon",    hand: 6,  pin: "8888", paid: true,  paidOut: false },
+  { name: "Keisha",   hand: 8,  pin: "9999", paid: true,  paidOut: false },
+  { name: "Andre",    hand: 10, pin: "1010", paid: false, paidOut: false },
+  { name: "Patrice",  hand: 11, pin: "1111", paid: true,  paidOut: false },
+  { name: "Jerome",   hand: 12, pin: "1212", paid: true,  paidOut: false },
+];
+
+const ANNOUNCEMENTS = [
+  { date: "May 5, 2026", title: "Cycle 4 payments due June 1", body: "Please ensure your $500 contribution is sent before the draw date. Zelle or cash accepted." },
+  { date: "April 1, 2026", title: "Cycle 3 complete — Tricia received her hand", body: "Congratulations to Tricia on receiving her $500 payout. Next draw goes to Yolanda in cycle 4." },
+  { date: "March 1, 2026", title: "Welcome to the Pardna Portal", body: "This portal is your home base for tracking contributions and staying updated. More features coming soon." },
+];
+
+let currentUser = null;
+
+window.onload = () => {
+  const sel = document.getElementById('name-select');
+  MEMBERS.forEach(m => { const o = document.createElement('option'); o.value = m.name; o.textContent = m.name; sel.appendChild(o); });
+};
+
+function doLogin() {
+  const name = document.getElementById('name-select').value;
+  const pin = document.getElementById('pin-input').value.trim();
+  const err = document.getElementById('login-error');
+  if (!name) { err.textContent = "Please select your name."; return; }
+  const member = MEMBERS.find(m => m.name === name && m.pin === pin);
+  if (!member) { err.textContent = "Incorrect PIN. Try again."; return; }
+  currentUser = member;
+  err.textContent = "";
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('portal').style.display = 'block';
+  document.getElementById('topbar-name').textContent = member.name + (member.role === 'admin' ? ' (Admin)' : '');
+  renderAll();
+}
+
+document.getElementById('pin-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('portal').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('name-select').value = '';
+}
+
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  el.classList.add('active');
+}
+
+function renderAll() { renderDashboard(); renderMembers(); renderContributions(); renderAnnouncements(); }
+
+function renderDashboard() {
+  const u = currentUser, G = GROUP;
+  const paidCount = MEMBERS.filter(m => m.paid).length;
+  const pct = Math.round((G.currentCycle / G.cycleLength) * 100);
+  document.getElementById('dash-sub').textContent = `${G.name} · Cycle ${G.currentCycle} of ${G.cycleLength}`;
+  document.getElementById('d-pot').textContent = '$' + G.totalPot.toLocaleString();
+  document.getElementById('d-hand').textContent = '#' + u.hand;
+  document.getElementById('d-hand-sub').textContent = '$' + G.handAmount + '/cycle';
+  document.getElementById('d-cycle').textContent = G.currentCycle;
+  document.getElementById('d-cycle-sub').textContent = `of ${G.cycleLength} total`;
+  document.getElementById('d-draw').textContent = G.drawDate;
+  document.getElementById('d-prog-label').textContent = `Cycle ${G.currentCycle}`;
+  document.getElementById('d-prog-pct').textContent = pct + '%';
+  document.getElementById('d-prog-fill').style.width = pct + '%';
+  document.getElementById('d-prog-sub').textContent = `${G.cycleLength - G.currentCycle} cycles remaining`;
+  document.getElementById('d-paid-summary').textContent = `${paidCount} paid · ${MEMBERS.length - paidCount} outstanding`;
+  const avatarWrap = document.getElementById('d-avatars');
+  avatarWrap.innerHTML = '';
+  [...MEMBERS].sort((a,b) => a.hand - b.hand).forEach(m => {
+    const div = document.createElement('div');
+    div.title = m.name + (m.paid ? ' — Paid' : ' — Unpaid');
+    div.style.cssText = `width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:default;background:${m.paid?'rgba(76,175,125,0.15)':'rgba(224,90,90,0.12)'};border:1.5px solid ${m.paid?'var(--green)':'var(--red)'};color:${m.paid?'var(--green)':'var(--red)'};`;
+    div.textContent = m.name.slice(0,2);
+    avatarWrap.appendChild(div);
+  });
+}
+
+function renderMembers() {
+  const G = GROUP;
+  document.getElementById('mem-sub').textContent = `${MEMBERS.length} members · Cycle ${G.currentCycle}`;
+  const tbody = document.getElementById('members-tbody');
+  tbody.innerHTML = '';
+  [...MEMBERS].sort((a,b) => a.hand - b.hand).forEach(m => {
+    const isYou = m.name === currentUser.name;
+    const payoutLabel = m.paidOut ? '<span class="badge gold">Received</span>' : m.hand <= G.currentCycle ? '<span class="badge gold">Upcoming</span>' : `Cycle ${m.hand}`;
+    tbody.innerHTML += `<tr><td><strong>${m.name}</strong>${isYou?' <span style="font-size:11px;color:var(--gold)">(you)</span>':''}${m.role==='admin'?'<span class="admin-tag">Admin</span>':''}</td><td>#${m.hand}</td><td><span class="badge ${m.paid?'green':'red'}">${m.paid?'Paid':'Unpaid'}</span></td><td>${payoutLabel}</td></tr>`;
+  });
+}
+
+function renderContributions() {
+  const u = currentUser, G = GROUP;
+  document.getElementById('con-sub').textContent = `Hand #${u.hand} · $${G.handAmount} per cycle`;
+  let totalPaid = 0;
+  const tbody = document.getElementById('con-tbody');
+  tbody.innerHTML = '';
+  for (let c = 1; c <= G.currentCycle; c++) {
+    const status = c < G.currentCycle ? 'paid' : (u.paid ? 'paid' : 'due');
+    if (status === 'paid') totalPaid += G.handAmount;
+    tbody.innerHTML += `<tr><td>Cycle ${c}</td><td>$${G.handAmount}</td><td>${c < G.currentCycle ? '—' : G.drawDate}</td><td><span class="badge ${status==='paid'?'green':'red'}">${status==='paid'?'Paid':'Due'}</span></td></tr>`;
+  }
+  tbody.innerHTML += `<tr><td colspan="4" style="color:var(--muted);font-size:12px;text-align:center;padding-top:14px;">${G.cycleLength - G.currentCycle} upcoming cycles not shown</td></tr>`;
+  document.getElementById('con-total').textContent = '$' + totalPaid.toLocaleString();
+  document.getElementById('con-payout').textContent = '$' + G.handAmount.toLocaleString();
+  document.getElementById('con-payout-sub').textContent = `Due on cycle ${u.hand}`;
+}
+
+function renderAnnouncements() {
+  const wrap = document.getElementById('announce-list');
+  wrap.innerHTML = '';
+  ANNOUNCEMENTS.forEach(a => {
+    wrap.innerHTML += `<div class="card announce-item"><div class="announce-date">${a.date}</div><div class="announce-title">${a.title}</div><div class="announce-body">${a.body}</div></div>`;
+  });
+}
+</script>
+</body>
+</html>
