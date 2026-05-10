@@ -5,110 +5,62 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Pardna Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #0d0d0d;
-    --card: #161616;
-    --border: #242424;
-    --gold: #c9a84c;
-    --text: #f0ede6;
-    --muted: #6b6560;
-    --green: #4caf7d;
-    --red: #e05a5a;
-  }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    min-height: 100vh;
-  }
-
-  #login-screen {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-
-  .login-box {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 40px 36px;
-    width: 100%;
-    max-width: 380px;
-    text-align: center;
-  }
-
+  :root { --bg: #0d0d0d; --card: #161616; --border: #242424; --gold: #c9a84c; --text: #f0ede6; --muted: #6b6560; --green: #4caf7d; --red: #e05a5a; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .login-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 40px 36px; width: 100%; max-width: 380px; text-align: center; }
   .login-logo { font-size: 26px; font-weight: 700; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; }
   .login-sub { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
   .login-box h2 { font-size: 16px; font-weight: 600; margin: 28px 0 20px; }
-
   .field { margin-bottom: 14px; text-align: left; }
   .field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px; }
   .field select, .field input { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border 0.2s; }
   .field select:focus, .field input:focus { border-color: var(--gold); }
   .field select option { background: #1a1a1a; }
-
   .btn-primary { width: 100%; padding: 12px; background: var(--gold); color: #000; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 6px; letter-spacing: 0.5px; transition: opacity 0.2s; }
   .btn-primary:hover { opacity: 0.88; }
   .login-error { color: var(--red); font-size: 12px; margin-top: 10px; }
-
   #portal { display: none; }
-
   .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
   .topbar-logo { font-size: 18px; font-weight: 700; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
   .topbar-user { font-size: 12px; color: var(--muted); }
   .topbar-user span { color: var(--text); font-weight: 600; }
   .logout-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 14px; font-family: 'DM Sans', sans-serif; }
   .logout-btn:hover { color: var(--text); border-color: var(--muted); }
-
   nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; overflow-x: auto; }
   .nav-item { padding: 12px 18px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; font-weight: 500; }
   .nav-item:hover { color: var(--text); }
   .nav-item.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
-
   .content { padding: 28px 24px; max-width: 860px; margin: 0 auto; }
   .page { display: none; }
   .page.active { display: block; }
   .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
   .page-sub { font-size: 12px; color: var(--muted); margin-bottom: 24px; }
-
   .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
   .card-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
   .card-value { font-size: 26px; font-weight: 700; }
   .card-value.gold { color: var(--gold); }
   .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
-
   .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .badge.green { background: rgba(76,175,125,0.15); color: var(--green); }
   .badge.red { background: rgba(224,90,90,0.15); color: var(--red); }
   .badge.gold { background: rgba(201,168,76,0.15); color: var(--gold); }
-
   table { width: 100%; border-collapse: collapse; }
   th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
   td { font-size: 13px; padding: 12px 12px; border-bottom: 1px solid var(--border); }
   tr:last-child td { border-bottom: none; }
-
   .progress-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 10px; }
   .progress-fill { height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.6s ease; }
-
   .announce-item { margin-bottom: 14px; }
   .announce-date { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
   .announce-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
   .announce-body { font-size: 13px; color: #a0998f; line-height: 1.6; }
-
   .admin-tag { font-size: 10px; background: rgba(201,168,76,0.15); color: var(--gold); padding: 2px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
-
-  @media (max-width: 500px) {
-    .content { padding: 20px 16px; }
-    .card-value { font-size: 22px; }
-  }
+  @media (max-width: 500px) { .content { padding: 20px 16px; } .card-value { font-size: 22px; } }
 </style>
 </head>
 <body>
@@ -118,14 +70,8 @@
     <div class="login-logo">Pardna</div>
     <div class="login-sub">Member Portal</div>
     <h2>Sign In</h2>
-    <div class="field">
-      <label>Select Your Name</label>
-      <select id="name-select"><option value="">— choose —</option></select>
-    </div>
-    <div class="field">
-      <label>PIN</label>
-      <input type="password" id="pin-input" placeholder="Enter your PIN" maxlength="6"/>
-    </div>
+    <div class="field"><label>Select Your Name</label><select id="name-select"><option value="">— choose —</option></select></div>
+    <div class="field"><label>PIN</label><input type="password" id="pin-input" placeholder="Enter your PIN" maxlength="6"/></div>
     <button class="btn-primary" onclick="doLogin()">Enter Portal</button>
     <div class="login-error" id="login-error"></div>
   </div>
@@ -144,6 +90,7 @@
     <div class="nav-item" onclick="showPage('members',this)">Members</div>
     <div class="nav-item" onclick="showPage('contributions',this)">My Contributions</div>
     <div class="nav-item" onclick="showPage('announcements',this)">Announcements</div>
+    <div class="nav-item" onclick="showPage('changepin',this)">Change PIN</div>
   </nav>
   <div class="content">
 
@@ -173,10 +120,8 @@
       <div class="page-title">Members</div>
       <div class="page-sub" id="mem-sub"></div>
       <div class="card">
-        <table>
-          <thead><tr><th>Name</th><th>Hand #</th><th>This Cycle</th><th>Payout</th></tr></thead>
-          <tbody id="members-tbody"></tbody>
-        </table>
+        <table><thead><tr><th>Name</th><th>Hand #</th><th>This Cycle</th><th>Payout</th></tr></thead>
+        <tbody id="members-tbody"></tbody></table>
       </div>
     </div>
 
@@ -188,10 +133,8 @@
         <div class="card"><div class="card-label">My Payout</div><div class="card-value" id="con-payout"></div><div class="card-sub" id="con-payout-sub"></div></div>
       </div>
       <div class="card">
-        <table>
-          <thead><tr><th>Cycle</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
-          <tbody id="con-tbody"></tbody>
-        </table>
+        <table><thead><tr><th>Cycle</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
+        <tbody id="con-tbody"></tbody></table>
       </div>
     </div>
 
@@ -201,34 +144,27 @@
       <div id="announce-list"></div>
     </div>
 
+    <div class="page" id="page-changepin">
+      <div class="page-title">Change PIN</div>
+      <div class="page-sub">Update your personal PIN</div>
+      <div class="card" style="max-width:380px;">
+        <div class="field"><label>Current PIN</label><input type="password" id="cp-current" placeholder="Enter current PIN" maxlength="6"/></div>
+        <div class="field"><label>New PIN</label><input type="password" id="cp-new" placeholder="Enter new PIN" maxlength="6"/></div>
+        <div class="field"><label>Confirm New PIN</label><input type="password" id="cp-confirm" placeholder="Confirm new PIN" maxlength="6"/></div>
+        <button class="btn-primary" onclick="changePin()">Update PIN</button>
+        <div id="cp-msg" style="font-size:12px;margin-top:10px;"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <script>
-const GROUP = {
-  name: "Pardna Circle A",
-  cycleLength: 12,
-  currentCycle: 4,
-  handAmount: 500,
-  drawDate: "June 1, 2026",
-  totalPot: 6000,
-};
+const SUPABASE_URL = 'https://tobycrfvxrziijyqitsw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvYnljcmZ2eHJ6aWlqeXFpdHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzkwNjQsImV4cCI6MjA5MzMxNTA2NH0.8IgLF4fBDGBpLoiV1jg7ufCMGD6uGyAxg9X1QCjbMfY';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const MEMBERS = [
-  { name: "Michael",  hand: 3,  pin: "1111", paid: true,  paidOut: false, role: "admin" },
-  { name: "Veronica",   hand: 1,  pin: "2222", paid: true,  paidOut: true  },
-  { name: "Bobby",   hand: 5,  pin: "3333", paid: true,  paidOut: false },
-  { name: "Junior",   hand: 7,  pin: "4444", paid: false, paidOut: false },
-  { name: "James",   hand: 2,  pin: "5555", paid: true,  paidOut: true  },
-  { name: "Julie",   hand: 9,  pin: "6666", paid: true,  paidOut: false },
-  { name: "Yolanda",  hand: 4,  pin: "7777", paid: false, paidOut: false },
-  { name: "Devon",    hand: 6,  pin: "8888", paid: true,  paidOut: false },
-  { name: "Keisha",   hand: 8,  pin: "9999", paid: true,  paidOut: false },
-  { name: "Andre",    hand: 10, pin: "1010", paid: false, paidOut: false },
-  { name: "Patrice",  hand: 11, pin: "1111", paid: true,  paidOut: false },
-  { name: "Jerome",   hand: 12, pin: "1212", paid: true,  paidOut: false },
-];
-
+const GROUP = { name: "Pardna Circle A", cycleLength: 12, currentCycle: 4, handAmount: 500, drawDate: "June 1, 2026", totalPot: 6000 };
 const ANNOUNCEMENTS = [
   { date: "May 5, 2026", title: "Cycle 4 payments due June 1", body: "Please ensure your $500 contribution is sent before the draw date. Zelle or cash accepted." },
   { date: "April 1, 2026", title: "Cycle 3 complete — Tricia received her hand", body: "Congratulations to Tricia on receiving her $500 payout. Next draw goes to Yolanda in cycle 4." },
@@ -236,31 +172,35 @@ const ANNOUNCEMENTS = [
 ];
 
 let currentUser = null;
+let allMembers = [];
 
-window.onload = () => {
+window.onload = async () => {
+  const { data } = await db.from('members').select('name').order('name');
   const sel = document.getElementById('name-select');
-  MEMBERS.forEach(m => { const o = document.createElement('option'); o.value = m.name; o.textContent = m.name; sel.appendChild(o); });
+  if (data) data.forEach(m => { const o = document.createElement('option'); o.value = m.name; o.textContent = m.name; sel.appendChild(o); });
 };
 
-function doLogin() {
+async function doLogin() {
   const name = document.getElementById('name-select').value;
-  const pin = document.getElementById('pin-input').value.trim();
-  const err = document.getElementById('login-error');
+  const pin  = document.getElementById('pin-input').value.trim();
+  const err  = document.getElementById('login-error');
   if (!name) { err.textContent = "Please select your name."; return; }
-  const member = MEMBERS.find(m => m.name === name && m.pin === pin);
-  if (!member) { err.textContent = "Incorrect PIN. Try again."; return; }
-  currentUser = member;
+  const { data } = await db.from('members').select('*').eq('name', name).eq('pin', pin).single();
+  if (!data) { err.textContent = "Incorrect PIN. Try again."; return; }
+  currentUser = data;
+  const { data: all } = await db.from('members').select('*').order('hand');
+  allMembers = all || [];
   err.textContent = "";
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('portal').style.display = 'block';
-  document.getElementById('topbar-name').textContent = member.name + (member.role === 'admin' ? ' (Admin)' : '');
+  document.getElementById('topbar-name').textContent = data.name + (data.role === 'admin' ? ' (Admin)' : '');
   renderAll();
 }
 
 document.getElementById('pin-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 function doLogout() {
-  currentUser = null;
+  currentUser = null; allMembers = [];
   document.getElementById('portal').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('pin-input').value = '';
@@ -278,7 +218,7 @@ function renderAll() { renderDashboard(); renderMembers(); renderContributions()
 
 function renderDashboard() {
   const u = currentUser, G = GROUP;
-  const paidCount = MEMBERS.filter(m => m.paid).length;
+  const paidCount = allMembers.filter(m => m.paid).length;
   const pct = Math.round((G.currentCycle / G.cycleLength) * 100);
   document.getElementById('dash-sub').textContent = `${G.name} · Cycle ${G.currentCycle} of ${G.cycleLength}`;
   document.getElementById('d-pot').textContent = '$' + G.totalPot.toLocaleString();
@@ -291,10 +231,10 @@ function renderDashboard() {
   document.getElementById('d-prog-pct').textContent = pct + '%';
   document.getElementById('d-prog-fill').style.width = pct + '%';
   document.getElementById('d-prog-sub').textContent = `${G.cycleLength - G.currentCycle} cycles remaining`;
-  document.getElementById('d-paid-summary').textContent = `${paidCount} paid · ${MEMBERS.length - paidCount} outstanding`;
+  document.getElementById('d-paid-summary').textContent = `${paidCount} paid · ${allMembers.length - paidCount} outstanding`;
   const avatarWrap = document.getElementById('d-avatars');
   avatarWrap.innerHTML = '';
-  [...MEMBERS].sort((a,b) => a.hand - b.hand).forEach(m => {
+  allMembers.forEach(m => {
     const div = document.createElement('div');
     div.title = m.name + (m.paid ? ' — Paid' : ' — Unpaid');
     div.style.cssText = `width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:default;background:${m.paid?'rgba(76,175,125,0.15)':'rgba(224,90,90,0.12)'};border:1.5px solid ${m.paid?'var(--green)':'var(--red)'};color:${m.paid?'var(--green)':'var(--red)'};`;
@@ -304,13 +244,14 @@ function renderDashboard() {
 }
 
 function renderMembers() {
-  const G = GROUP;
-  document.getElementById('mem-sub').textContent = `${MEMBERS.length} members · Cycle ${G.currentCycle}`;
+  const G = GROUP, isAdmin = currentUser.role === 'admin';
+  const list = isAdmin ? allMembers : [currentUser];
+  document.getElementById('mem-sub').textContent = isAdmin ? `${allMembers.length} members · Cycle ${G.currentCycle}` : 'Your membership details';
   const tbody = document.getElementById('members-tbody');
   tbody.innerHTML = '';
-  [...MEMBERS].sort((a,b) => a.hand - b.hand).forEach(m => {
+  list.forEach(m => {
     const isYou = m.name === currentUser.name;
-    const payoutLabel = m.paidOut ? '<span class="badge gold">Received</span>' : m.hand <= G.currentCycle ? '<span class="badge gold">Upcoming</span>' : `Cycle ${m.hand}`;
+    const payoutLabel = m.paid_out ? '<span class="badge gold">Received</span>' : m.hand <= G.currentCycle ? '<span class="badge gold">Upcoming</span>' : `Cycle ${m.hand}`;
     tbody.innerHTML += `<tr><td><strong>${m.name}</strong>${isYou?' <span style="font-size:11px;color:var(--gold)">(you)</span>':''}${m.role==='admin'?'<span class="admin-tag">Admin</span>':''}</td><td>#${m.hand}</td><td><span class="badge ${m.paid?'green':'red'}">${m.paid?'Paid':'Unpaid'}</span></td><td>${payoutLabel}</td></tr>`;
   });
 }
@@ -335,9 +276,25 @@ function renderContributions() {
 function renderAnnouncements() {
   const wrap = document.getElementById('announce-list');
   wrap.innerHTML = '';
-  ANNOUNCEMENTS.forEach(a => {
-    wrap.innerHTML += `<div class="card announce-item"><div class="announce-date">${a.date}</div><div class="announce-title">${a.title}</div><div class="announce-body">${a.body}</div></div>`;
-  });
+  ANNOUNCEMENTS.forEach(a => { wrap.innerHTML += `<div class="card announce-item"><div class="announce-date">${a.date}</div><div class="announce-title">${a.title}</div><div class="announce-body">${a.body}</div></div>`; });
+}
+
+async function changePin() {
+  const current = document.getElementById('cp-current').value.trim();
+  const newPin  = document.getElementById('cp-new').value.trim();
+  const confirm = document.getElementById('cp-confirm').value.trim();
+  const msg     = document.getElementById('cp-msg');
+  if (current !== currentUser.pin) { msg.style.color='var(--red)'; msg.textContent='Current PIN is incorrect.'; return; }
+  if (newPin.length < 4) { msg.style.color='var(--red)'; msg.textContent='New PIN must be at least 4 digits.'; return; }
+  if (newPin !== confirm) { msg.style.color='var(--red)'; msg.textContent='New PINs do not match.'; return; }
+  const { error } = await db.from('members').update({ pin: newPin }).eq('name', currentUser.name);
+  if (error) { msg.style.color='var(--red)'; msg.textContent='Error updating PIN. Try again.'; return; }
+  currentUser.pin = newPin;
+  document.getElementById('cp-current').value='';
+  document.getElementById('cp-new').value='';
+  document.getElementById('cp-confirm').value='';
+  msg.style.color='var(--green)';
+  msg.textContent='PIN updated successfully.';
 }
 </script>
 </body>
