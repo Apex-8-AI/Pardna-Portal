@@ -1,301 +1,315 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Pardna Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>3200 Pardna Portal</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --bg: #0d0d0d; --card: #161616; --border: #242424; --gold: #c9a84c; --text: #f0ede6; --muted: #6b6560; --green: #4caf7d; --red: #e05a5a; }
-  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
-  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .login-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 40px 36px; width: 100%; max-width: 380px; text-align: center; }
-  .login-logo { font-size: 26px; font-weight: 700; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; }
-  .login-sub { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
-  .login-box h2 { font-size: 16px; font-weight: 600; margin: 28px 0 20px; }
-  .field { margin-bottom: 14px; text-align: left; }
-  .field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px; }
-  .field select, .field input { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border 0.2s; }
-  .field select:focus, .field input:focus { border-color: var(--gold); }
-  .field select option { background: #1a1a1a; }
-  .btn-primary { width: 100%; padding: 12px; background: var(--gold); color: #000; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 6px; letter-spacing: 0.5px; transition: opacity 0.2s; }
-  .btn-primary:hover { opacity: 0.88; }
-  .login-error { color: var(--red); font-size: 12px; margin-top: 10px; }
-  #portal { display: none; }
-  .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
-  .topbar-logo { font-size: 18px; font-weight: 700; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
-  .topbar-user { font-size: 12px; color: var(--muted); }
-  .topbar-user span { color: var(--text); font-weight: 600; }
-  .logout-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 14px; font-family: 'DM Sans', sans-serif; }
-  .logout-btn:hover { color: var(--text); border-color: var(--muted); }
-  nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; overflow-x: auto; }
-  .nav-item { padding: 12px 18px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; font-weight: 500; }
-  .nav-item:hover { color: var(--text); }
-  .nav-item.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
-  .content { padding: 28px 24px; max-width: 860px; margin: 0 auto; }
-  .page { display: none; }
-  .page.active { display: block; }
-  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-  .page-sub { font-size: 12px; color: var(--muted); margin-bottom: 24px; }
-  .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
-  .card-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .card-value { font-size: 26px; font-weight: 700; }
-  .card-value.gold { color: var(--gold); }
-  .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-  .badge.green { background: rgba(76,175,125,0.15); color: var(--green); }
-  .badge.red { background: rgba(224,90,90,0.15); color: var(--red); }
-  .badge.gold { background: rgba(201,168,76,0.15); color: var(--gold); }
-  table { width: 100%; border-collapse: collapse; }
-  th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-  td { font-size: 13px; padding: 12px 12px; border-bottom: 1px solid var(--border); }
-  tr:last-child td { border-bottom: none; }
-  .progress-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 10px; }
-  .progress-fill { height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.6s ease; }
-  .announce-item { margin-bottom: 14px; }
-  .announce-date { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-  .announce-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-  .announce-body { font-size: 13px; color: #a0998f; line-height: 1.6; }
-  .admin-tag { font-size: 10px; background: rgba(201,168,76,0.15); color: var(--gold); padding: 2px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
-  @media (max-width: 500px) { .content { padding: 20px 16px; } .card-value { font-size: 22px; } }
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#111;color:#e8e0d4;font-family:monospace;min-height:100vh}
+header{background:#181818;border-bottom:1px solid #2a2a2a;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.gname{font-size:16px;font-weight:700}.gsub{font-size:10px;color:#555;margin-top:2px}
+.wbadge{background:rgba(201,123,46,.15);color:#c97b2e;border:1px solid rgba(201,123,46,.3);border-radius:20px;padding:4px 12px;font-size:11px}
+.trow{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px}
+.ttrack{width:34px;height:18px;border-radius:9px;background:#333;position:relative;transition:background .2s}
+.ttrack.on{background:rgba(201,123,46,.5)}
+.tthumb{width:12px;height:12px;border-radius:50%;background:#555;position:absolute;top:3px;left:3px;transition:all .2s}
+.ttrack.on .tthumb{left:19px;background:#c97b2e}
+nav{background:#181818;border-bottom:1px solid #2a2a2a;display:flex;padding:0 20px;overflow-x:auto}
+nav button{background:none;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;font-family:monospace;font-size:12px;padding:12px 14px;transition:color .15s;white-space:nowrap}
+nav button.active{color:#c97b2e;border-bottom-color:#c97b2e}
+main{padding:20px;max-width:960px;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+.scard{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:12px;padding:14px 18px;flex:1;min-width:120px}
+.slabel{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.sval{font-size:24px;font-weight:700;line-height:1}
+.ssub{font-size:10px;color:#555;margin-top:4px}
+.sec{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.mcard{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:12px;padding:13px 15px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color .15s}
+.mcard:hover{border-color:rgba(201,123,46,.4)}
+.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.minfo{flex:1}
+.mnrow{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.mn{font-size:13px;font-weight:600}
+.hbadge{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(201,123,46,.15);color:#c97b2e;border:1px solid rgba(201,123,46,.3);font-weight:600}
+.ubadge{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.05);color:#555;border:1px solid #2a2a2a}
+.pbar{background:#2a2a2a;border-radius:4px;height:4px;overflow:hidden}
+.pfill{height:100%;border-radius:4px;transition:width .3s}
+.mmeta{font-size:10px;color:#555;margin-top:4px;display:flex;justify-content:space-between}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px}
+.wcard{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:10px;padding:12px 14px}
+.wcard.cur{background:rgba(201,123,46,.08);border-color:rgba(201,123,46,.35)}
+.wcard.past{opacity:.55}
+.wtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.wnum{font-size:10px;color:#555}
+.nowb{font-size:9px;color:#c97b2e;background:rgba(201,123,46,.15);padding:1px 6px;border-radius:10px}
+.pastb{font-size:9px;color:#444}
+.wdate{font-size:11px;color:#666;margin-bottom:8px}
+.wrec{display:flex;align-items:center;gap:8px}
+.wrecname{font-size:12px;font-weight:600}
+.wpot{font-size:10px;color:#c97b2e}
+.wempty{font-size:11px;color:#333;font-style:italic}
+.fbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.flabel{font-size:11px;color:#555}
+.fbtn{background:none;border:1px solid #2a2a2a;border-radius:20px;color:#555;cursor:pointer;font-family:monospace;font-size:11px;padding:4px 11px;transition:all .15s}
+.fbtn.active{background:rgba(201,123,46,.12);border-color:rgba(201,123,46,.45);color:#c97b2e}
+.anote{background:rgba(46,125,110,.1);border:1px solid rgba(46,125,110,.25);border-radius:8px;padding:8px 14px;font-size:11px;color:#2e7d6e;margin-bottom:14px}
+.pblock{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:14px;padding:18px 20px;margin-bottom:12px}
+.phead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.pmname{font-size:14px;font-weight:600;display:flex;gap:8px;align-items:center}
+.pmeta{font-size:11px;color:#555;margin-top:3px}
+.tiles{display:flex;flex-wrap:wrap;gap:5px}
+.tile{width:34px;height:34px;border-radius:8px;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;border:1.5px solid #2a2a2a;background:#161616;color:#333;transition:all .12s}
+.tile.paid{background:rgba(46,125,110,.2);border-color:rgba(46,125,110,.4);color:#2e7d6e}
+.tile.unpaid{background:rgba(168,50,50,.18);border-color:rgba(168,50,50,.35);color:#a83232}
+.tile.cwk{border-color:rgba(201,123,46,.6)!important}
+.tile.click{cursor:pointer}.tile.click:hover{transform:scale(1.1)}
+.leg{display:flex;gap:14px;margin-top:10px;font-size:10px;color:#555}
+.mtable{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:14px;overflow:hidden}
+.mth{display:grid;grid-template-columns:1fr 85px 95px 80px 85px 80px;padding:10px 18px;border-bottom:1px solid #2a2a2a;font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.5px}
+.mtr{display:grid;grid-template-columns:1fr 85px 95px 80px 85px 80px;padding:12px 18px;align-items:center;border-bottom:1px solid #1a1a1a;transition:background .12s}
+.mtr:last-child{border-bottom:none}
+.mtr:hover{background:rgba(255,255,255,.02)}
+.stbadge{font-size:10px;padding:2px 8px;border-radius:20px;text-align:center}
 </style>
 </head>
 <body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo } = React;
 
-<div id="login-screen">
-  <div class="login-box">
-    <div class="login-logo">Pardna</div>
-    <div class="login-sub">Member Portal</div>
-    <h2>Sign In</h2>
-    <div class="field"><label>Select Your Name</label><select id="name-select"><option value="">— choose —</option></select></div>
-    <div class="field"><label>PIN</label><input type="password" id="pin-input" placeholder="Enter your PIN" maxlength="6"/></div>
-    <button class="btn-primary" onclick="doLogin()">Enter Portal</button>
-    <div class="login-error" id="login-error"></div>
-  </div>
-</div>
-
-<div id="portal">
-  <div class="topbar">
-    <div class="topbar-logo">Pardna</div>
-    <div style="display:flex;align-items:center;">
-      <div class="topbar-user">Signed in as <span id="topbar-name"></span></div>
-      <button class="logout-btn" onclick="doLogout()">Log out</button>
-    </div>
-  </div>
-  <nav>
-    <div class="nav-item active" onclick="showPage('dashboard',this)">Dashboard</div>
-    <div class="nav-item" onclick="showPage('members',this)">Members</div>
-    <div class="nav-item" onclick="showPage('contributions',this)">My Contributions</div>
-    <div class="nav-item" onclick="showPage('announcements',this)">Announcements</div>
-    <div class="nav-item" onclick="showPage('changepin',this)">Change PIN</div>
-  </nav>
-  <div class="content">
-
-    <div class="page active" id="page-dashboard">
-      <div class="page-title">Dashboard</div>
-      <div class="page-sub" id="dash-sub"></div>
-      <div class="cards-row">
-        <div class="card"><div class="card-label">Total Pot</div><div class="card-value gold" id="d-pot"></div></div>
-        <div class="card"><div class="card-label">Your Hand</div><div class="card-value gold" id="d-hand"></div><div class="card-sub" id="d-hand-sub"></div></div>
-        <div class="card"><div class="card-label">Current Cycle</div><div class="card-value" id="d-cycle"></div><div class="card-sub" id="d-cycle-sub"></div></div>
-        <div class="card"><div class="card-label">Next Draw</div><div class="card-value" style="font-size:16px;margin-top:4px;" id="d-draw"></div></div>
-      </div>
-      <div class="card">
-        <div class="card-label" style="margin-bottom:10px;">Cycle Progress</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span id="d-prog-label"></span><span id="d-prog-pct"></span></div>
-        <div class="progress-bar"><div class="progress-fill" id="d-prog-fill"></div></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px;" id="d-prog-sub"></div>
-      </div>
-      <div class="card" style="margin-top:14px;">
-        <div class="card-label" style="margin-bottom:12px;">This Cycle — Payment Status</div>
-        <div id="d-avatars" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:10px;" id="d-paid-summary"></div>
-      </div>
-    </div>
-
-    <div class="page" id="page-members">
-      <div class="page-title">Members</div>
-      <div class="page-sub" id="mem-sub"></div>
-      <div class="card">
-        <table><thead><tr><th>Name</th><th>Hand #</th><th>This Cycle</th><th>Payout</th></tr></thead>
-        <tbody id="members-tbody"></tbody></table>
-      </div>
-    </div>
-
-    <div class="page" id="page-contributions">
-      <div class="page-title">My Contributions</div>
-      <div class="page-sub" id="con-sub"></div>
-      <div class="cards-row">
-        <div class="card"><div class="card-label">Total Contributed</div><div class="card-value gold" id="con-total"></div></div>
-        <div class="card"><div class="card-label">My Payout</div><div class="card-value" id="con-payout"></div><div class="card-sub" id="con-payout-sub"></div></div>
-      </div>
-      <div class="card">
-        <table><thead><tr><th>Cycle</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
-        <tbody id="con-tbody"></tbody></table>
-      </div>
-    </div>
-
-    <div class="page" id="page-announcements">
-      <div class="page-title">Announcements</div>
-      <div class="page-sub">Updates from your organizer</div>
-      <div id="announce-list"></div>
-    </div>
-
-    <div class="page" id="page-changepin">
-      <div class="page-title">Change PIN</div>
-      <div class="page-sub">Update your personal PIN</div>
-      <div class="card" style="max-width:380px;">
-        <div class="field"><label>Current PIN</label><input type="password" id="cp-current" placeholder="Enter current PIN" maxlength="6"/></div>
-        <div class="field"><label>New PIN</label><input type="password" id="cp-new" placeholder="Enter new PIN" maxlength="6"/></div>
-        <div class="field"><label>Confirm New PIN</label><input type="password" id="cp-confirm" placeholder="Confirm new PIN" maxlength="6"/></div>
-        <button class="btn-primary" onclick="changePin()">Update PIN</button>
-        <div id="cp-msg" style="font-size:12px;margin-top:10px;"></div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<script>
-const SUPABASE_URL = 'https://tobycrfvxrziijyqitsw.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvYnljcmZ2eHJ6aWlqeXFpdHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzkwNjQsImV4cCI6MjA5MzMxNTA2NH0.8IgLF4fBDGBpLoiV1jg7ufCMGD6uGyAxg9X1QCjbMfY';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const GROUP = { name: "Pardna Circle A", cycleLength: 12, currentCycle: 4, handAmount: 500, drawDate: "June 1, 2026", totalPot: 6000 };
-const ANNOUNCEMENTS = [
-  { date: "May 5, 2026", title: "Cycle 4 payments due June 1", body: "Please ensure your $500 contribution is sent before the draw date. Zelle or cash accepted." },
-  { date: "April 1, 2026", title: "Cycle 3 complete — Tricia received her hand", body: "Congratulations to Tricia on receiving her $500 payout. Next draw goes to Yolanda in cycle 4." },
-  { date: "March 1, 2026", title: "Welcome to the Pardna Portal", body: "This portal is your home base for tracking contributions and staying updated. More features coming soon." },
+const MEMBERS = [
+  {id:1,name:"Veronica",hand:null},
+  {id:2,name:"Brittany",hand:null},
+  {id:3,name:"Michael", hand:null},
+  {id:4,name:"Bobby",   hand:27},
+  {id:5,name:"James",   hand:26},
+  {id:6,name:"Anthony", hand:null},
+  {id:7,name:"Tricia",  hand:null},
+  {id:8,name:"Barbara", hand:null},
+  {id:9,name:"Edwin",   hand:null},
 ];
+const AVCOLS=["#C97B2E","#2E7D6E","#7B3F8C","#2E5F9B","#A83232","#5B8A2E","#8C5B2E","#2E7B8C","#7B6A2E"];
+const START=new Date("2025-06-13");
+const NWEEKS=32;
 
-let currentUser = null;
-let allMembers = [];
-
-window.onload = async () => {
-  const { data } = await db.from('members').select('name').order('name');
-  const sel = document.getElementById('name-select');
-  if (data) data.forEach(m => { const o = document.createElement('option'); o.value = m.name; o.textContent = m.name; sel.appendChild(o); });
-};
-
-async function doLogin() {
-  const name = document.getElementById('name-select').value;
-  const pin  = document.getElementById('pin-input').value.trim();
-  const err  = document.getElementById('login-error');
-  if (!name) { err.textContent = "Please select your name."; return; }
-  const { data } = await db.from('members').select('*').eq('name', name).eq('pin', pin).single();
-  if (!data) { err.textContent = "Incorrect PIN. Try again."; return; }
-  currentUser = data;
-  const { data: all } = await db.from('members').select('*').order('hand');
-  allMembers = all || [];
-  err.textContent = "";
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('portal').style.display = 'block';
-  document.getElementById('topbar-name').textContent = data.name + (data.role === 'admin' ? ' (Admin)' : '');
-  renderAll();
-}
-
-document.getElementById('pin-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-
-function doLogout() {
-  currentUser = null; allMembers = [];
-  document.getElementById('portal').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('pin-input').value = '';
-  document.getElementById('name-select').value = '';
-}
-
-function showPage(id, el) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  el.classList.add('active');
-}
-
-function renderAll() { renderDashboard(); renderMembers(); renderContributions(); renderAnnouncements(); }
-
-function renderDashboard() {
-  const u = currentUser, G = GROUP;
-  const paidCount = allMembers.filter(m => m.paid).length;
-  const pct = Math.round((G.currentCycle / G.cycleLength) * 100);
-  document.getElementById('dash-sub').textContent = `${G.name} · Cycle ${G.currentCycle} of ${G.cycleLength}`;
-  document.getElementById('d-pot').textContent = '$' + G.totalPot.toLocaleString();
-  document.getElementById('d-hand').textContent = '#' + u.hand;
-  document.getElementById('d-hand-sub').textContent = '$' + G.handAmount + '/cycle';
-  document.getElementById('d-cycle').textContent = G.currentCycle;
-  document.getElementById('d-cycle-sub').textContent = `of ${G.cycleLength} total`;
-  document.getElementById('d-draw').textContent = G.drawDate;
-  document.getElementById('d-prog-label').textContent = `Cycle ${G.currentCycle}`;
-  document.getElementById('d-prog-pct').textContent = pct + '%';
-  document.getElementById('d-prog-fill').style.width = pct + '%';
-  document.getElementById('d-prog-sub').textContent = `${G.cycleLength - G.currentCycle} cycles remaining`;
-  document.getElementById('d-paid-summary').textContent = `${paidCount} paid · ${allMembers.length - paidCount} outstanding`;
-  const avatarWrap = document.getElementById('d-avatars');
-  avatarWrap.innerHTML = '';
-  allMembers.forEach(m => {
-    const div = document.createElement('div');
-    div.title = m.name + (m.paid ? ' — Paid' : ' — Unpaid');
-    div.style.cssText = `width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:default;background:${m.paid?'rgba(76,175,125,0.15)':'rgba(224,90,90,0.12)'};border:1.5px solid ${m.paid?'var(--green)':'var(--red)'};color:${m.paid?'var(--green)':'var(--red)'};`;
-    div.textContent = m.name.slice(0,2);
-    avatarWrap.appendChild(div);
+function genWeeks(){
+  return Array.from({length:NWEEKS},(_,i)=>{
+    const d=new Date(START); d.setDate(d.getDate()+i*7);
+    return {n:i+1,date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),full:d};
   });
 }
+const WEEKS=genWeeks();
 
-function renderMembers() {
-  const G = GROUP, isAdmin = currentUser.role === 'admin';
-  const list = isAdmin ? allMembers : [currentUser];
-  document.getElementById('mem-sub').textContent = isAdmin ? `${allMembers.length} members · Cycle ${G.currentCycle}` : 'Your membership details';
-  const tbody = document.getElementById('members-tbody');
-  tbody.innerHTML = '';
-  list.forEach(m => {
-    const isYou = m.name === currentUser.name;
-    const payoutLabel = m.paid_out ? '<span class="badge gold">Received</span>' : m.hand <= G.currentCycle ? '<span class="badge gold">Upcoming</span>' : `Cycle ${m.hand}`;
-    tbody.innerHTML += `<tr><td><strong>${m.name}</strong>${isYou?' <span style="font-size:11px;color:var(--gold)">(you)</span>':''}${m.role==='admin'?'<span class="admin-tag">Admin</span>':''}</td><td>#${m.hand}</td><td><span class="badge ${m.paid?'green':'red'}">${m.paid?'Paid':'Unpaid'}</span></td><td>${payoutLabel}</td></tr>`;
-  });
+function initPay(){
+  const p={};
+  MEMBERS.forEach(m=>{p[m.id]={};WEEKS.forEach(w=>{p[m.id][w.n]=false;});});
+  return p;
 }
 
-function renderContributions() {
-  const u = currentUser, G = GROUP;
-  document.getElementById('con-sub').textContent = `Hand #${u.hand} · $${G.handAmount} per cycle`;
-  let totalPaid = 0;
-  const tbody = document.getElementById('con-tbody');
-  tbody.innerHTML = '';
-  for (let c = 1; c <= G.currentCycle; c++) {
-    const status = c < G.currentCycle ? 'paid' : (u.paid ? 'paid' : 'due');
-    if (status === 'paid') totalPaid += G.handAmount;
-    tbody.innerHTML += `<tr><td>Cycle ${c}</td><td>$${G.handAmount}</td><td>${c < G.currentCycle ? '—' : G.drawDate}</td><td><span class="badge ${status==='paid'?'green':'red'}">${status==='paid'?'Paid':'Due'}</span></td></tr>`;
-  }
-  tbody.innerHTML += `<tr><td colspan="4" style="color:var(--muted);font-size:12px;text-align:center;padding-top:14px;">${G.cycleLength - G.currentCycle} upcoming cycles not shown</td></tr>`;
-  document.getElementById('con-total').textContent = '$' + totalPaid.toLocaleString();
-  document.getElementById('con-payout').textContent = '$' + G.handAmount.toLocaleString();
-  document.getElementById('con-payout-sub').textContent = `Due on cycle ${u.hand}`;
+function getCurWeek(){
+  const t=new Date(); let c=0;
+  WEEKS.forEach(w=>{if(t>=w.full)c=w.n;});
+  return Math.max(1,c);
 }
 
-function renderAnnouncements() {
-  const wrap = document.getElementById('announce-list');
-  wrap.innerHTML = '';
-  ANNOUNCEMENTS.forEach(a => { wrap.innerHTML += `<div class="card announce-item"><div class="announce-date">${a.date}</div><div class="announce-title">${a.title}</div><div class="announce-body">${a.body}</div></div>`; });
+function Av({name,idx,size=36}){
+  const c=AVCOLS[idx%AVCOLS.length];
+  return <div className="av" style={{width:size,height:size,background:c+"28",border:`1.5px solid ${c}55`,color:c}}>{name[0]}</div>;
+}
+function HBadge({hand}){
+  return hand
+    ? <span className="hbadge">Hand #{hand}</span>
+    : <span className="ubadge">Unassigned</span>;
 }
 
-async function changePin() {
-  const current = document.getElementById('cp-current').value.trim();
-  const newPin  = document.getElementById('cp-new').value.trim();
-  const confirm = document.getElementById('cp-confirm').value.trim();
-  const msg     = document.getElementById('cp-msg');
-  if (current !== currentUser.pin) { msg.style.color='var(--red)'; msg.textContent='Current PIN is incorrect.'; return; }
-  if (newPin.length < 4) { msg.style.color='var(--red)'; msg.textContent='New PIN must be at least 4 digits.'; return; }
-  if (newPin !== confirm) { msg.style.color='var(--red)'; msg.textContent='New PINs do not match.'; return; }
-  const { error } = await db.from('members').update({ pin: newPin }).eq('name', currentUser.name);
-  if (error) { msg.style.color='var(--red)'; msg.textContent='Error updating PIN. Try again.'; return; }
-  currentUser.pin = newPin;
-  document.getElementById('cp-current').value='';
-  document.getElementById('cp-new').value='';
-  document.getElementById('cp-confirm').value='';
-  msg.style.color='var(--green)';
-  msg.textContent='PIN updated successfully.';
+export default function App(){
+  const [pay,setPay]=useState(initPay);
+  const [tab,setTab]=useState("overview");
+  const [admin,setAdmin]=useState(true);
+  const [fmem,setFmem]=useState(null);
+  const cw=useMemo(getCurWeek,[]);
+
+  const stats=useMemo(()=>MEMBERS.map((m,i)=>{
+    const paid=WEEKS.filter(w=>w.n<=cw&&pay[m.id][w.n]).length;
+    const due=Math.min(cw,NWEEKS);
+    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100};
+  }),[pay,cw]);
+
+  const totCol=stats.reduce((s,m)=>s+m.amt,0);
+  const totArr=stats.reduce((s,m)=>s+m.arr,0);
+  const health=Math.round((stats.reduce((s,m)=>s+m.paid,0)/(MEMBERS.length*cw))*100);
+  const potMap=useMemo(()=>{const x={};MEMBERS.forEach(m=>{if(m.hand)x[m.hand]=m;});return x;},[]);
+
+  const toggle=(mid,wn)=>{
+    if(!admin)return;
+    setPay(p=>({...p,[mid]:{...p[mid],[wn]:!p[mid][wn]}}));
+  };
+
+  const SC=({label,val,sub,color})=>(
+    <div className="scard">
+      <div className="slabel">{label}</div>
+      <div className="sval" style={{color:color||"#e8e0d4"}}>{val}</div>
+      {sub&&<div className="ssub">{sub}</div>}
+    </div>
+  );
+
+  const Overview=()=>(
+    <div>
+      <div className="stats">
+        <SC label="Pot Size" val="$3,200" color="#c97b2e"/>
+        <SC label="Collected" val={`$${totCol.toLocaleString()}`} sub={`Week ${cw} of ${NWEEKS}`}/>
+        <SC label="Health" val={`${health}%`} color={health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232"}/>
+        <SC label="Arrears" val={totArr} sub="payments behind" color={totArr>0?"#a83232":"#2e7d6e"}/>
+      </div>
+      <div className="sec">Members</div>
+      <div className="mgrid">
+        {stats.map(m=>(
+          <div key={m.id} className="mcard" onClick={()=>{setFmem(m.id);setTab("payments");}}>
+            <Av name={m.name} idx={m.idx}/>
+            <div className="minfo">
+              <div className="mnrow"><span className="mn">{m.name}</span><HBadge hand={m.hand}/></div>
+              <div className="pbar"><div className="pfill" style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,background:m.arr>0?"#a83232":"#2e7d6e"}}/></div>
+              <div className="mmeta">
+                <span>{m.paid}/{m.due} paid</span>
+                <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const Schedule=()=>(
+    <div>
+      <div className="sec" style={{marginBottom:14}}>Pot Draw Schedule — {NWEEKS} Weeks</div>
+      <div className="sgrid">
+        {WEEKS.map(w=>{
+          const rec=potMap[w.n];
+          const past=w.n<cw, cur=w.n===cw;
+          const midx=rec?MEMBERS.findIndex(m=>m.id===rec.id):-1;
+          return(
+            <div key={w.n} className={`wcard${cur?" cur":""}${past&&!cur?" past":""}`}>
+              <div className="wtop">
+                <span className="wnum">Wk {w.n}</span>
+                {cur&&<span className="nowb">NOW</span>}
+                {past&&!cur&&<span className="pastb">past</span>}
+              </div>
+              <div className="wdate">{w.date}</div>
+              {rec
+                ?<div className="wrec"><Av name={rec.name} idx={midx} size={26}/><div><div className="wrecname">{rec.name}</div><div className="wpot">$3,200</div></div></div>
+                :<div className="wempty">Unassigned</div>
+              }
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const Payments=()=>{
+    const show=fmem?stats.filter(m=>m.id===fmem):stats;
+    return(
+      <div>
+        <div className="fbar">
+          <span className="flabel">Filter:</span>
+          <button className={`fbtn${!fmem?" active":""}`} onClick={()=>setFmem(null)}>All</button>
+          {stats.map(m=><button key={m.id} className={`fbtn${fmem===m.id?" active":""}`} onClick={()=>setFmem(fmem===m.id?null:m.id)}>{m.name}</button>)}
+        </div>
+        {!admin&&<div className="anote">View-only. Enable Admin to toggle payments.</div>}
+        {show.map(m=>(
+          <div key={m.id} className="pblock">
+            <div className="phead">
+              <Av name={m.name} idx={m.idx}/>
+              <div>
+                <div className="pmname">{m.name}<HBadge hand={m.hand}/></div>
+                <div className="pmeta">{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · ${m.amt.toLocaleString()} collected</div>
+              </div>
+            </div>
+            <div className="tiles">
+              {WEEKS.map(w=>{
+                const paid=pay[m.id][w.n];
+                const due=w.n<=cw, cur=w.n===cw;
+                return(
+                  <div key={w.n}
+                    className={`tile${paid?" paid":due?" unpaid":""}${cur?" cwk":""}${due&&admin?" click":""}`}
+                    title={`Week ${w.n} · ${w.date}`}
+                    onClick={()=>due&&toggle(m.id,w.n)}>
+                    {w.n}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="leg">
+              <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
+              <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
+              <span><span style={{color:"#333"}}>■</span> Upcoming</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const Members=()=>(
+    <div>
+      <div className="sec" style={{marginBottom:14}}>9 Members · $100/week · $3,200 pot</div>
+      <div className="mtable">
+        <div className="mth"><span>Member</span><span>Hand</span><span>Draw Date</span><span>Paid</span><span>Collected</span><span>Status</span></div>
+        {stats.map((m,i)=>{
+          const dw=m.hand?WEEKS[m.hand-1]:null;
+          return(
+            <div key={m.id} className="mtr">
+              <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13,fontWeight:500}}>{m.name}</span></div>
+              <div><HBadge hand={m.hand}/></div>
+              <div style={{fontSize:11,color:dw?"#888":"#444"}}>{dw?dw.date:"—"}</div>
+              <div style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></div>
+              <div style={{fontSize:13,color:"#c97b2e"}}>${m.amt.toLocaleString()}</div>
+              <div className="stbadge" style={{background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>
+                {m.arr>0?`${m.arr} behind`:"current"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return(
+    <div>
+      <header>
+        <div>
+          <div className="gname">💰 3200 Pardna</div>
+          <div className="gsub">Jun 13 2025 → Jan 16 2026 · 9 members · 32 weeks</div>
+          <div className="trow" onClick={()=>setAdmin(a=>!a)}>
+            <div className={`ttrack${admin?" on":""}`}><div className="tthumb"/></div>
+            <span style={{color:admin?"#c97b2e":"#555"}}>Admin Mode</span>
+          </div>
+        </div>
+        <div className="wbadge">Week {cw}</div>
+      </header>
+      <nav>
+        {["overview","schedule","payments","members"].map(t=>(
+          <button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{t}</button>
+        ))}
+      </nav>
+      <main>
+        {tab==="overview"&&<Overview/>}
+        {tab==="schedule"&&<Schedule/>}
+        {tab==="payments"&&<Payments/>}
+        {tab==="members"&&<Members/>}
+      </main>
+    </div>
+  );
 }
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
