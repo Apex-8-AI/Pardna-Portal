@@ -3,87 +3,55 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>3200 Pardna Portal</title>
+<title>Pardna Portal</title>
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#111;color:#e8e0d4;font-family:monospace;min-height:100vh}
-header{background:#181818;border-bottom:1px solid #2a2a2a;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
-.gname{font-size:16px;font-weight:700}.gsub{font-size:10px;color:#555;margin-top:2px}
-.wbadge{background:rgba(201,123,46,.15);color:#c97b2e;border:1px solid rgba(201,123,46,.3);border-radius:20px;padding:4px 12px;font-size:11px}
-.trow{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px}
-.ttrack{width:34px;height:18px;border-radius:9px;background:#333;position:relative;transition:background .2s}
-.ttrack.on{background:rgba(201,123,46,.5)}
-.tthumb{width:12px;height:12px;border-radius:50%;background:#555;position:absolute;top:3px;left:3px;transition:all .2s}
-.ttrack.on .tthumb{left:19px;background:#c97b2e}
-nav{background:#181818;border-bottom:1px solid #2a2a2a;display:flex;padding:0 20px;overflow-x:auto}
-nav button{background:none;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;font-family:monospace;font-size:12px;padding:12px 14px;transition:color .15s;white-space:nowrap}
-nav button.active{color:#c97b2e;border-bottom-color:#c97b2e}
-main{padding:20px;max-width:960px;margin:0 auto}
-.tab{display:none}.tab.active{display:block}
-.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
-.scard{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:12px;padding:14px 18px;flex:1;min-width:120px}
-.slabel{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-.sval{font-size:24px;font-weight:700;line-height:1}
-.ssub{font-size:10px;color:#555;margin-top:4px}
-.sec{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
-.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
-.mcard{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:12px;padding:13px 15px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color .15s}
-.mcard:hover{border-color:rgba(201,123,46,.4)}
-.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
-.minfo{flex:1}
-.mnrow{display:flex;align-items:center;gap:7px;margin-bottom:5px}
-.mn{font-size:13px;font-weight:600}
-.hbadge{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(201,123,46,.15);color:#c97b2e;border:1px solid rgba(201,123,46,.3);font-weight:600}
-.ubadge{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.05);color:#555;border:1px solid #2a2a2a}
-.pbar{background:#2a2a2a;border-radius:4px;height:4px;overflow:hidden}
-.pfill{height:100%;border-radius:4px;transition:width .3s}
-.mmeta{font-size:10px;color:#555;margin-top:4px;display:flex;justify-content:space-between}
-.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px}
-.wcard{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:10px;padding:12px 14px}
-.wcard.cur{background:rgba(201,123,46,.08);border-color:rgba(201,123,46,.35)}
-.wcard.past{opacity:.55}
-.wtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-.wnum{font-size:10px;color:#555}
-.nowb{font-size:9px;color:#c97b2e;background:rgba(201,123,46,.15);padding:1px 6px;border-radius:10px}
-.pastb{font-size:9px;color:#444}
-.wdate{font-size:11px;color:#666;margin-bottom:8px}
-.wrec{display:flex;align-items:center;gap:8px}
-.wrecname{font-size:12px;font-weight:600}
-.wpot{font-size:10px;color:#c97b2e}
-.wempty{font-size:11px;color:#333;font-style:italic}
-.fbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
-.flabel{font-size:11px;color:#555}
-.fbtn{background:none;border:1px solid #2a2a2a;border-radius:20px;color:#555;cursor:pointer;font-family:monospace;font-size:11px;padding:4px 11px;transition:all .15s}
-.fbtn.active{background:rgba(201,123,46,.12);border-color:rgba(201,123,46,.45);color:#c97b2e}
-.anote{background:rgba(46,125,110,.1);border:1px solid rgba(46,125,110,.25);border-radius:8px;padding:8px 14px;font-size:11px;color:#2e7d6e;margin-bottom:14px}
-.pblock{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:14px;padding:18px 20px;margin-bottom:12px}
-.phead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
-.pmname{font-size:14px;font-weight:600;display:flex;gap:8px;align-items:center}
-.pmeta{font-size:11px;color:#555;margin-top:3px}
-.tiles{display:flex;flex-wrap:wrap;gap:5px}
-.tile{width:34px;height:34px;border-radius:8px;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;border:1.5px solid #2a2a2a;background:#161616;color:#333;transition:all .12s}
-.tile.paid{background:rgba(46,125,110,.2);border-color:rgba(46,125,110,.4);color:#2e7d6e}
-.tile.unpaid{background:rgba(168,50,50,.18);border-color:rgba(168,50,50,.35);color:#a83232}
-.tile.cwk{border-color:rgba(201,123,46,.6)!important}
-.tile.click{cursor:pointer}.tile.click:hover{transform:scale(1.1)}
-.leg{display:flex;gap:14px;margin-top:10px;font-size:10px;color:#555}
-.mtable{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:14px;overflow:hidden}
-.mth{display:grid;grid-template-columns:1fr 85px 95px 80px 85px 80px;padding:10px 18px;border-bottom:1px solid #2a2a2a;font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.5px}
-.mtr{display:grid;grid-template-columns:1fr 85px 95px 80px 85px 80px;padding:12px 18px;align-items:center;border-bottom:1px solid #1a1a1a;transition:background .12s}
-.mtr:last-child{border-bottom:none}
-.mtr:hover{background:rgba(255,255,255,.02)}
-.stbadge{font-size:10px;padding:2px 8px;border-radius:20px;text-align:center}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useMemo } = React;
+const{useState}=React;
 
-const MEMBERS = [
+function Login({onLogin}){
+  const[pin,setPin]=useState("");
+  const[err,setErr]=useState("");
+  const submit=()=>{
+    if(pin==="1234"){onLogin("admin");}
+    else if(pin==="0000"){onLogin("member");}
+    else{setErr("Wrong PIN. Try again.");}
+  };
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
+      <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:"40px 32px",width:"100%",maxWidth:340,textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:12}}>💰</div>
+        <div style={{fontSize:20,fontWeight:700,marginBottom:4}}>Pardna Portal</div>
+        <div style={{fontSize:11,color:"#555",marginBottom:28}}>3200 Group · 9 Members</div>
+        <input
+          type="password"
+          placeholder="Enter PIN"
+          value={pin}
+          onChange={e=>setPin(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&submit()}
+          style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"12px 14px",color:"#e8e0d4",fontFamily:"monospace",fontSize:16,textAlign:"center",marginBottom:10,outline:"none"}}
+        />
+        {err&&<div style={{fontSize:11,color:"#a83232",marginBottom:10}}>{err}</div>}
+        <button
+          onClick={submit}
+          style={{width:"100%",background:"rgba(201,123,46,0.2)",border:"1px solid rgba(201,123,46,0.4)",borderRadius:8,padding:"12px",color:"#c97b2e",fontFamily:"monospace",fontSize:13,cursor:"pointer",fontWeight:600}}>
+          Enter
+        </button>
+        <div style={{fontSize:10,color:"#333",marginTop:20}}>Admin PIN: 1234 · Member PIN: 0000</div>
+      </div>
+    </div>
+  );
+}
+
+const MEMBERS=[
   {id:1,name:"Veronica",hand:null},
   {id:2,name:"Brittany",hand:null},
   {id:3,name:"Michael", hand:null},
@@ -100,8 +68,8 @@ const NWEEKS=32;
 
 function genWeeks(){
   return Array.from({length:NWEEKS},(_,i)=>{
-    const d=new Date(START); d.setDate(d.getDate()+i*7);
-    return {n:i+1,date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),full:d};
+    const d=new Date(START);d.setDate(d.getDate()+i*7);
+    return{n:i+1,date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),full:d};
   });
 }
 const WEEKS=genWeeks();
@@ -113,69 +81,75 @@ function initPay(){
 }
 
 function getCurWeek(){
-  const t=new Date(); let c=0;
+  const t=new Date();let c=0;
   WEEKS.forEach(w=>{if(t>=w.full)c=w.n;});
   return Math.max(1,c);
 }
 
 function Av({name,idx,size=36}){
   const c=AVCOLS[idx%AVCOLS.length];
-  return <div className="av" style={{width:size,height:size,background:c+"28",border:`1.5px solid ${c}55`,color:c}}>{name[0]}</div>;
+  return<div style={{width:size,height:size,borderRadius:"50%",background:c+"28",border:`1.5px solid ${c}55`,color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:700,flexShrink:0}}>{name[0]}</div>;
 }
 function HBadge({hand}){
   return hand
-    ? <span className="hbadge">Hand #{hand}</span>
-    : <span className="ubadge">Unassigned</span>;
+    ?<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",fontWeight:600}}>Hand #{hand}</span>
+    :<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(255,255,255,.05)",color:"#555",border:"1px solid #2a2a2a"}}>Unassigned</span>;
 }
 
-export default function App(){
-  const [pay,setPay]=useState(initPay);
-  const [tab,setTab]=useState("overview");
-  const [admin,setAdmin]=useState(true);
-  const [fmem,setFmem]=useState(null);
-  const cw=useMemo(getCurWeek,[]);
+function App(){
+  const[role,setRole]=useState(null);
+  const[pay,setPay]=useState(initPay);
+  const[tab,setTab]=useState("overview");
+  const[fmem,setFmem]=useState(null);
+  const cw=React.useMemo(getCurWeek,[]);
+  const admin=role==="admin";
 
-  const stats=useMemo(()=>MEMBERS.map((m,i)=>{
+  if(!role)return<Login onLogin={setRole}/>;
+
+  const stats=MEMBERS.map((m,i)=>{
     const paid=WEEKS.filter(w=>w.n<=cw&&pay[m.id][w.n]).length;
     const due=Math.min(cw,NWEEKS);
     return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100};
-  }),[pay,cw]);
+  });
 
   const totCol=stats.reduce((s,m)=>s+m.amt,0);
   const totArr=stats.reduce((s,m)=>s+m.arr,0);
   const health=Math.round((stats.reduce((s,m)=>s+m.paid,0)/(MEMBERS.length*cw))*100);
-  const potMap=useMemo(()=>{const x={};MEMBERS.forEach(m=>{if(m.hand)x[m.hand]=m;});return x;},[]);
+  const potMap={};MEMBERS.forEach(m=>{if(m.hand)potMap[m.hand]=m;});
 
   const toggle=(mid,wn)=>{
     if(!admin)return;
     setPay(p=>({...p,[mid]:{...p[mid],[wn]:!p[mid][wn]}}));
   };
 
-  const SC=({label,val,sub,color})=>(
-    <div className="scard">
-      <div className="slabel">{label}</div>
-      <div className="sval" style={{color:color||"#e8e0d4"}}>{val}</div>
-      {sub&&<div className="ssub">{sub}</div>}
+  const card=(label,val,sub,color)=>(
+    <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 18px",flex:1,minWidth:120}}>
+      <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{label}</div>
+      <div style={{fontSize:24,fontWeight:700,lineHeight:1,color:color||"#e8e0d4"}}>{val}</div>
+      {sub&&<div style={{fontSize:10,color:"#555",marginTop:4}}>{sub}</div>}
     </div>
   );
 
   const Overview=()=>(
     <div>
-      <div className="stats">
-        <SC label="Pot Size" val="$3,200" color="#c97b2e"/>
-        <SC label="Collected" val={`$${totCol.toLocaleString()}`} sub={`Week ${cw} of ${NWEEKS}`}/>
-        <SC label="Health" val={`${health}%`} color={health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232"}/>
-        <SC label="Arrears" val={totArr} sub="payments behind" color={totArr>0?"#a83232":"#2e7d6e"}/>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
+        {card("Pot Size","$3,200",null,"#c97b2e")}
+        {card("Collected",`$${totCol.toLocaleString()}`,`Week ${cw} of ${NWEEKS}`)}
+        {card("Health",`${health}%`,null,health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232")}
+        {card("Arrears",totArr,"payments behind",totArr>0?"#a83232":"#2e7d6e")}
       </div>
-      <div className="sec">Members</div>
-      <div className="mgrid">
+      <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Members</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10}}>
         {stats.map(m=>(
-          <div key={m.id} className="mcard" onClick={()=>{setFmem(m.id);setTab("payments");}}>
+          <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");}}
+            style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
             <Av name={m.name} idx={m.idx}/>
-            <div className="minfo">
-              <div className="mnrow"><span className="mn">{m.name}</span><HBadge hand={m.hand}/></div>
-              <div className="pbar"><div className="pfill" style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,background:m.arr>0?"#a83232":"#2e7d6e"}}/></div>
-              <div className="mmeta">
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}><span style={{fontSize:13,fontWeight:600}}>{m.name}</span><HBadge hand={m.hand}/></div>
+              <div style={{background:"#2a2a2a",borderRadius:4,height:4,overflow:"hidden"}}>
+                <div style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,height:"100%",background:m.arr>0?"#a83232":"#2e7d6e",borderRadius:4}}/>
+              </div>
+              <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}>
                 <span>{m.paid}/{m.due} paid</span>
                 <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span>
               </div>
@@ -187,29 +161,26 @@ export default function App(){
   );
 
   const Schedule=()=>(
-    <div>
-      <div className="sec" style={{marginBottom:14}}>Pot Draw Schedule — {NWEEKS} Weeks</div>
-      <div className="sgrid">
-        {WEEKS.map(w=>{
-          const rec=potMap[w.n];
-          const past=w.n<cw, cur=w.n===cw;
-          const midx=rec?MEMBERS.findIndex(m=>m.id===rec.id):-1;
-          return(
-            <div key={w.n} className={`wcard${cur?" cur":""}${past&&!cur?" past":""}`}>
-              <div className="wtop">
-                <span className="wnum">Wk {w.n}</span>
-                {cur&&<span className="nowb">NOW</span>}
-                {past&&!cur&&<span className="pastb">past</span>}
-              </div>
-              <div className="wdate">{w.date}</div>
-              {rec
-                ?<div className="wrec"><Av name={rec.name} idx={midx} size={26}/><div><div className="wrecname">{rec.name}</div><div className="wpot">$3,200</div></div></div>
-                :<div className="wempty">Unassigned</div>
-              }
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(165px,1fr))",gap:8}}>
+      {WEEKS.map(w=>{
+        const rec=potMap[w.n];
+        const past=w.n<cw,cur=w.n===cw;
+        const midx=rec?MEMBERS.findIndex(m=>m.id===rec.id):-1;
+        return(
+          <div key={w.n} style={{background:cur?"rgba(201,123,46,.08)":"#1c1c1c",border:`1px solid ${cur?"rgba(201,123,46,.35)":"#2a2a2a"}`,borderRadius:10,padding:"12px 14px",opacity:past&&!cur?.55:1}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
+              {cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}
+              {past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}
             </div>
-          );
-        })}
-      </div>
+            <div style={{fontSize:11,color:"#666",marginBottom:8}}>{w.date}</div>
+            {rec
+              ?<div style={{display:"flex",alignItems:"center",gap:8}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>$3,200</div></div></div>
+              :<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>
+            }
+          </div>
+        );
+      })}
     </div>
   );
 
@@ -217,39 +188,33 @@ export default function App(){
     const show=fmem?stats.filter(m=>m.id===fmem):stats;
     return(
       <div>
-        <div className="fbar">
-          <span className="flabel">Filter:</span>
-          <button className={`fbtn${!fmem?" active":""}`} onClick={()=>setFmem(null)}>All</button>
-          {stats.map(m=><button key={m.id} className={`fbtn${fmem===m.id?" active":""}`} onClick={()=>setFmem(fmem===m.id?null:m.id)}>{m.name}</button>)}
+        <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
+          <span style={{fontSize:11,color:"#555"}}>Filter:</span>
+          <button onClick={()=>setFmem(null)} style={{background:!fmem?"rgba(201,123,46,.12)":"none",border:`1px solid ${!fmem?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:!fmem?"#c97b2e":"#555",cursor:"pointer",fontFamily:"monospace",fontSize:11,padding:"4px 11px"}}>All</button>
+          {stats.map(m=><button key={m.id} onClick={()=>setFmem(fmem===m.id?null:m.id)} style={{background:fmem===m.id?"rgba(201,123,46,.12)":"none",border:`1px solid ${fmem===m.id?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:fmem===m.id?"#c97b2e":"#555",cursor:"pointer",fontFamily:"monospace",fontSize:11,padding:"4px 11px"}}>{m.name}</button>)}
         </div>
-        {!admin&&<div className="anote">View-only. Enable Admin to toggle payments.</div>}
+        {!admin&&<div style={{background:"rgba(46,125,110,.1)",border:"1px solid rgba(46,125,110,.25)",borderRadius:8,padding:"8px 14px",fontSize:11,color:"#2e7d6e",marginBottom:14}}>View-only mode.</div>}
         {show.map(m=>(
-          <div key={m.id} className="pblock">
-            <div className="phead">
+          <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
               <Av name={m.name} idx={m.idx}/>
               <div>
-                <div className="pmname">{m.name}<HBadge hand={m.hand}/></div>
-                <div className="pmeta">{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · ${m.amt.toLocaleString()} collected</div>
+                <div style={{fontSize:14,fontWeight:600,display:"flex",gap:8,alignItems:"center"}}>{m.name}<HBadge hand={m.hand}/></div>
+                <div style={{fontSize:11,color:"#555",marginTop:3}}>{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · ${m.amt.toLocaleString()}</div>
               </div>
             </div>
-            <div className="tiles">
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
               {WEEKS.map(w=>{
-                const paid=pay[m.id][w.n];
-                const due=w.n<=cw, cur=w.n===cw;
-                return(
-                  <div key={w.n}
-                    className={`tile${paid?" paid":due?" unpaid":""}${cur?" cwk":""}${due&&admin?" click":""}`}
-                    title={`Week ${w.n} · ${w.date}`}
-                    onClick={()=>due&&toggle(m.id,w.n)}>
-                    {w.n}
-                  </div>
-                );
+                const paid=pay[m.id][w.n],due=w.n<=cw,cur=w.n===cw;
+                return<div key={w.n} title={`Week ${w.n} · ${w.date}`} onClick={()=>due&&toggle(m.id,w.n)}
+                  style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
+                    border:`1.5px solid ${cur?"rgba(201,123,46,.6)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
+                    background:paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
+                    color:paid?"#2e7d6e":due?"#a83232":"#333",
+                    cursor:due&&admin?"pointer":"default"}}>
+                  {w.n}
+                </div>;
               })}
-            </div>
-            <div className="leg">
-              <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
-              <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
-              <span><span style={{color:"#333"}}>■</span> Upcoming</span>
             </div>
           </div>
         ))}
@@ -257,54 +222,52 @@ export default function App(){
     );
   };
 
-  const Members=()=>(
-    <div>
-      <div className="sec" style={{marginBottom:14}}>9 Members · $100/week · $3,200 pot</div>
-      <div className="mtable">
-        <div className="mth"><span>Member</span><span>Hand</span><span>Draw Date</span><span>Paid</span><span>Collected</span><span>Status</span></div>
-        {stats.map((m,i)=>{
-          const dw=m.hand?WEEKS[m.hand-1]:null;
-          return(
-            <div key={m.id} className="mtr">
-              <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13,fontWeight:500}}>{m.name}</span></div>
-              <div><HBadge hand={m.hand}/></div>
-              <div style={{fontSize:11,color:dw?"#888":"#444"}}>{dw?dw.date:"—"}</div>
-              <div style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></div>
-              <div style={{fontSize:13,color:"#c97b2e"}}>${m.amt.toLocaleString()}</div>
-              <div className="stbadge" style={{background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>
-                {m.arr>0?`${m.arr} behind`:"current"}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   return(
-    <div>
-      <header>
+    <div style={{minHeight:"100vh",background:"#111"}}>
+      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
         <div>
-          <div className="gname">💰 3200 Pardna</div>
-          <div className="gsub">Jun 13 2025 → Jan 16 2026 · 9 members · 32 weeks</div>
-          <div className="trow" onClick={()=>setAdmin(a=>!a)}>
-            <div className={`ttrack${admin?" on":""}`}><div className="tthumb"/></div>
-            <span style={{color:admin?"#c97b2e":"#555"}}>Admin Mode</span>
-          </div>
+          <div style={{fontSize:16,fontWeight:700}}>💰 3200 Pardna</div>
+          <div style={{fontSize:10,color:"#555",marginTop:2}}>Jun 13 2025 → Jan 16 2026</div>
         </div>
-        <div className="wbadge">Week {cw}</div>
-      </header>
-      <nav>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <span style={{background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",borderRadius:20,padding:"4px 12px",fontSize:11}}>Week {cw}</span>
+          <button onClick={()=>setRole(null)} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",cursor:"pointer",fontFamily:"monospace",fontSize:11,padding:"4px 10px"}}>Logout</button>
+        </div>
+      </div>
+      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
         {["overview","schedule","payments","members"].map(t=>(
-          <button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{t}</button>
+          <button key={t} onClick={()=>setTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",cursor:"pointer",fontFamily:"monospace",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap"}}>
+            {t}
+          </button>
         ))}
-      </nav>
-      <main>
+      </div>
+      <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
         {tab==="overview"&&<Overview/>}
         {tab==="schedule"&&<Schedule/>}
         {tab==="payments"&&<Payments/>}
-        {tab==="members"&&<Members/>}
-      </main>
+        {tab==="members"&&(
+          <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 70px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
+              <span>Member</span><span>Hand</span><span>Draw</span><span>Paid</span><span>Collected</span><span>Status</span>
+            </div>
+            {stats.map(m=>{
+              const dw=m.hand?WEEKS[m.hand-1]:null;
+              return(
+                <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 70px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13}}>{m.name}</span></div>
+                  <HBadge hand={m.hand}/>
+                  <span style={{fontSize:11,color:"#666"}}>{dw?dw.date:"—"}</span>
+                  <span style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></span>
+                  <span style={{fontSize:13,color:"#c97b2e"}}>${m.amt.toLocaleString()}</span>
+                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>
+                    {m.arr>0?`${m.arr} behind`:"current"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
