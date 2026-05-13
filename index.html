@@ -25,7 +25,7 @@ const SUPA=supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvYnljcmZ2eHJ6aWlqeXFpdHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzkwNjQsImV4cCI6MjA5MzMxNTA2NH0.8IgLF4fBDGBpLoiV1jg7ufCMGD6uGyAxg9X1QCjbMfY"
 );
 
-const AVCOLS=["#C97B2E","#2E7D6E","#7B3F8C","#2E5F9B","#A83232","#5B8A2E","#8C5B2E","#2E7B8C","#7B6A2E"];
+const AVCOLS=["#C97B2E","#2E7D6E","#7B3F8C","#2E5F9B","#A83232","#5B8A2E","#8C5B2E","#2E7B8C","#7B6A2E","#3A7B8C"];
 const START=new Date("2025-06-13");
 const NWEEKS=32;
 
@@ -125,7 +125,7 @@ function Login({members,adminPin,onLogin}){
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{fontSize:32,marginBottom:10}}>💰</div>
           <div style={{fontSize:20,fontWeight:700}}>Pardna Portal</div>
-          <div style={{fontSize:11,color:"#555",marginTop:4}}>3200 Group · 9 Members</div>
+          <div style={{fontSize:11,color:"#555",marginTop:4}}>3200 Group · 10 Members</div>
         </div>
         <div style={{fontSize:11,color:"#555",marginBottom:6}}>Your Name</div>
         <select value={name} onChange={e=>setName(e.target.value)}
@@ -185,7 +185,6 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
       </div>
 
       <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
-
         {subTab==="my"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
@@ -286,7 +285,7 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
   };
 
   const resetMemberPin=async(id)=>{
-    const defaults=["1111","2222","3333","4444","5555","6666","7777","8888","9999"];
+    const defaults=["1111","2222","3333","4444","5555","6666","7777","8888","9999","0000"];
     const defPin=defaults[id-1];
     await SUPA.from("members").update({pin:defPin}).eq("id",id);
     onMemberPinReset(id,defPin);
@@ -453,7 +452,7 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
                   </div>
                 ))}
               </div>
-              <div style={{padding:"10px 20px",fontSize:10,color:"#444"}}>Resetting returns member PIN to their default (1111–9999).</div>
+              <div style={{padding:"10px 20px",fontSize:10,color:"#444"}}>Resetting returns member PIN to their default.</div>
             </div>
           </div>
         )}
