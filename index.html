@@ -32,7 +32,13 @@ const NWEEKS=32;
 function genWeeks(){
   return Array.from({length:NWEEKS},(_,i)=>{
     const d=new Date(START);d.setDate(d.getDate()+i*7);
-    return{n:i+1,date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),full:d};
+    const draw=new Date(d);draw.setDate(draw.getDate()+1);
+    return{
+      n:i+1,
+      date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),
+      drawDate:draw.toLocaleDateString("en-US",{month:"short",day:"numeric"}),
+      full:d
+    };
   });
 }
 const WEEKS=genWeeks();
@@ -63,7 +69,6 @@ function Loading(){
   </div>;
 }
 
-// ── CHANGE PIN FORM ────────────────────────────────────────────────────
 function ChangePinForm({currentPin,onSave,onCancel}){
   const[cur,setCur]=useState("");
   const[n1,setN1]=useState("");
@@ -76,10 +81,7 @@ function ChangePinForm({currentPin,onSave,onCancel}){
     if(cur!==currentPin){setErr("Current PIN incorrect.");return;}
     if(n1.length<4){setErr("New PIN must be at least 4 digits.");return;}
     if(n1!==n2){setErr("PINs don't match.");return;}
-    setSaving(true);
-    await onSave(n1);
-    setSaving(false);
-    setOk(true);
+    setSaving(true);await onSave(n1);setSaving(false);setOk(true);
   };
 
   if(ok)return(
@@ -111,7 +113,6 @@ function ChangePinForm({currentPin,onSave,onCancel}){
   );
 }
 
-// ── LOGIN ──────────────────────────────────────────────────────────────
 function Login({members,adminPin,onLogin}){
   const[name,setName]=useState("");
   const[pin,setPin]=useState("");
@@ -122,8 +123,7 @@ function Login({members,adminPin,onLogin}){
     setLoading(true);setErr("");
     if(name==="__admin__"&&pin===adminPin){onLogin("admin",null);return;}
     const m=members.find(m=>m.name.toLowerCase()===name.toLowerCase()&&m.pin===pin);
-    if(m){onLogin("member",m);}
-    else{setErr("Name or PIN incorrect.");}
+    if(m){onLogin("member",m);}else{setErr("Name or PIN incorrect.");}
     setLoading(false);
   };
 
@@ -157,7 +157,6 @@ function Login({members,adminPin,onLogin}){
   );
 }
 
-// ── MEMBER VIEW ────────────────────────────────────────────────────────
 function MemberView({member,payments,cw,onLogout,onPinSaved}){
   const[subTab,setSubTab]=useState("my");
   const idx=member.id-1;
@@ -195,10 +194,10 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
         {subTab==="my"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
-              {[["Pot","$3,200","#c97b2e"],["Hand",member.hand?`#${member.hand}`:"TBD","#7B3F8C"],["Draw",drawWeek?drawWeek.date:"TBD",null],["Paid",`${paid}/${due}`,arr>0?"#a83232":"#2e7d6e"],["Collected",`$${amt.toLocaleString()}`,"#c97b2e"],["Status",arr>0?`${arr} behind`:"Current",arr>0?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
+              {[["Pot","$3,200","#c97b2e"],["Hand",member.hand?`#${member.hand}`:"TBD","#7B3F8C"],["Deposit",drawWeek?drawWeek.date:"TBD",null],["Draw",drawWeek?drawWeek.drawDate:"TBD","#c97b2e"],["Paid",`${paid}/${due}`,arr>0?"#a83232":"#2e7d6e"],["Status",arr>0?`${arr} behind`:"Current",arr>0?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
                 <div key={l} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 16px",flex:1,minWidth:90}}>
                   <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{l}</div>
-                  <div style={{fontSize:18,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div>
+                  <div style={{fontSize:16,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div>
                 </div>
               ))}
             </div>
@@ -207,7 +206,7 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {WEEKS.map(w=>{
                   const p=payments[w.n],d=w.n<=cw,cur=w.n===cw;
-                  return<div key={w.n} title={`Week ${w.n} · ${w.date} · ${p?"PAID":d?"UNPAID":"upcoming"}`}
+                  return<div key={w.n} title={`Week ${w.n} · Deposit: ${w.date} · Draw: ${w.drawDate} · ${p?"PAID":d?"UNPAID":"upcoming"}`}
                     style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
                       border:`1.5px solid ${cur?"rgba(201,123,46,.6)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
                       background:p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
@@ -225,18 +224,19 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
           </div>
         )}
         {subTab==="schedule"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(165px,1fr))",gap:8}}>
             {WEEKS.map(w=>{
               const isMyHand=member.hand===w.n;
               const past=w.n<cw,cur=w.n===cw;
               return(
                 <div key={w.n} style={{background:isMyHand?"rgba(201,123,46,.12)":cur?"rgba(46,125,110,.08)":"#1c1c1c",border:`1px solid ${isMyHand?"rgba(201,123,46,.5)":cur?"rgba(46,125,110,.3)":"#2a2a2a"}`,borderRadius:10,padding:"11px 13px",opacity:past&&!cur&&!isMyHand?.5:1}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                     <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
                     {isMyHand&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>YOUR HAND</span>}
                     {cur&&!isMyHand&&<span style={{fontSize:9,color:"#2e7d6e"}}>NOW</span>}
                   </div>
-                  <div style={{fontSize:11,color:"#666",marginBottom:6}}>{w.date}</div>
+                  <div style={{fontSize:10,color:"#666"}}>💳 {w.date}</div>
+                  <div style={{fontSize:10,color:"#c97b2e",marginBottom:6}}>💰 {w.drawDate}</div>
                   {isMyHand?<div style={{fontSize:12,fontWeight:700,color:"#c97b2e"}}>$3,200 → You</div>:<div style={{fontSize:11,color:"#333"}}>—</div>}
                 </div>
               );
@@ -244,18 +244,13 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
           </div>
         )}
         {subTab==="pin"&&(
-          <ChangePinForm
-            currentPin={member.pin}
-            onSave={saveMemberPin}
-            onCancel={()=>setSubTab("my")}
-          />
+          <ChangePinForm currentPin={member.pin} onSave={saveMemberPin} onCancel={()=>setSubTab("my")}/>
         )}
       </div>
     </div>
   );
 }
 
-// ── ADMIN VIEW ─────────────────────────────────────────────────────────
 function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAdminPinSaved,onMemberPinReset}){
   const[tab,setTab]=useState("overview");
   const[fmem,setFmem]=useState(null);
@@ -274,9 +269,8 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
 
   const toggle=async(mid,wn)=>{
     const cur=allPayments[mid]?.[wn]||false;
-    const newVal=!cur;
-    setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:newVal}}));
-    await SUPA.from("payments").update({paid:newVal}).eq("member_id",mid).eq("week_num",wn);
+    setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));
+    await SUPA.from("payments").update({paid:!cur}).eq("member_id",mid).eq("week_num",wn);
   };
 
   const saveAdminPin=async(newPin)=>{
@@ -311,16 +305,13 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
           <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
         </div>
       </div>
-
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
         {["overview","payments","schedule","members","settings"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap",textTransform:"capitalize"}}>
-            {t}
-          </button>
+          <button key={t} onClick={()=>setTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap",textTransform:"capitalize"}}>{t}</button>
         ))}
       </div>
-
       <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
+
         {tab==="overview"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
@@ -370,7 +361,7 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {WEEKS.map(w=>{
                     const paid=allPayments[m.id]?.[w.n]||false,due=w.n<=cw,cur=w.n===cw;
-                    return<div key={w.n} title={`Week ${w.n} · ${w.date}`} onClick={()=>due&&toggle(m.id,w.n)}
+                    return<div key={w.n} title={`Week ${w.n} · Deposit: ${w.date} · Draw: ${w.drawDate}`} onClick={()=>due&&toggle(m.id,w.n)}
                       style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
                         border:`1.5px solid ${cur?"rgba(201,123,46,.6)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
                         background:paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
@@ -385,19 +376,20 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
         )}
 
         {tab==="schedule"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(165px,1fr))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:8}}>
             {WEEKS.map(w=>{
               const rec=potMap[w.n];
               const past=w.n<cw,cur=w.n===cw;
               const midx=rec?members.findIndex(m=>m.id===rec.id):-1;
               return(
                 <div key={w.n} style={{background:cur?"rgba(201,123,46,.08)":"#1c1c1c",border:`1px solid ${cur?"rgba(201,123,46,.35)":"#2a2a2a"}`,borderRadius:10,padding:"12px 14px",opacity:past&&!cur?.55:1}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                     <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
                     {cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}
                     {past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}
                   </div>
-                  <div style={{fontSize:11,color:"#666",marginBottom:8}}>{w.date}</div>
+                  <div style={{fontSize:10,color:"#666"}}>💳 {w.date}</div>
+                  <div style={{fontSize:10,color:"#c97b2e",marginBottom:8}}>💰 {w.drawDate}</div>
                   {rec
                     ?<div style={{display:"flex",alignItems:"center",gap:8}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>$3,200</div></div></div>
                     :<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>
@@ -410,16 +402,17 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
 
         {tab==="members"&&(
           <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden"}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 70px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
-              <span>Member</span><span>Hand</span><span>Draw</span><span>Paid</span><span>Collected</span><span>Status</span>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 90px 70px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
+              <span>Member</span><span>Hand</span><span>Deposit</span><span>Draw</span><span>Paid</span><span>Collected</span><span>Status</span>
             </div>
             {stats.map(m=>{
               const dw=m.hand?WEEKS[m.hand-1]:null;
               return(
-                <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 70px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
+                <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 90px 70px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
                   <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13}}>{m.name}</span></div>
                   <HBadge hand={m.hand}/>
                   <span style={{fontSize:11,color:"#666"}}>{dw?dw.date:"—"}</span>
+                  <span style={{fontSize:11,color:"#c97b2e"}}>{dw?dw.drawDate:"—"}</span>
                   <span style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></span>
                   <span style={{fontSize:13,color:"#c97b2e"}}>${m.amt.toLocaleString()}</span>
                   <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>
@@ -462,7 +455,6 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
   );
 }
 
-// ── ROOT ───────────────────────────────────────────────────────────────
 function App(){
   const[members,setMembers]=useState([]);
   const[allPayments,setAllPayments]=useState({});
@@ -474,19 +466,17 @@ function App(){
 
   useEffect(()=>{
     async function load(){
-      const[{data:mem},{data:pay},{data:adm}]=await Promise.all([
-        SUPA.from("members").select("*").order("id"),
-        SUPA.from("payments").select("*"),
-        SUPA.from("admin_settings").select("*").eq("id",1).single(),
-      ]);
-      setMembers(mem||[]);
+      const memRes=await SUPA.from("members").select("*").order("id");
+      const payRes=await SUPA.from("payments").select("*");
+      const admRes=await SUPA.from("admin_settings").select("*").eq("id",1).single();
+      setMembers(memRes.data||[]);
       const pm={};
-      (pay||[]).forEach(r=>{
+      (payRes.data||[]).forEach(r=>{
         if(!pm[r.member_id])pm[r.member_id]={};
         pm[r.member_id][r.week_num]=r.paid;
       });
       setAllPayments(pm);
-      if(adm)setAdminPin(adm.pin);
+      if(admRes.data)setAdminPin(admRes.data.pin);
       setLoading(false);
     }
     load();
@@ -494,15 +484,11 @@ function App(){
 
   const handleLogin=(r,m)=>{setRole(r);setCurrentMember(m);};
   const handleLogout=()=>{setRole(null);setCurrentMember(null);};
-
   const handleMemberPin=(id,newPin)=>{
     setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:newPin}:m));
     if(currentMember?.id===id)setCurrentMember(prev=>({...prev,pin:newPin}));
   };
-
-  const handleMemberPinReset=(id,defPin)=>{
-    setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:defPin}:m));
-  };
+  const handleMemberPinReset=(id,defPin)=>setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:defPin}:m));
 
   if(loading)return<Loading/>;
   if(!role)return<Login members={members} adminPin={adminPin} onLogin={handleLogin}/>;
