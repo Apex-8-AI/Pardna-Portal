@@ -7,61 +7,24 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#111;color:#e8e0d4;font-family:monospace;min-height:100vh}
+input,select{outline:none;color:#e8e0d4;font-family:monospace}
+button{font-family:monospace;cursor:pointer}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const{useState}=React;
+const{useState,useEffect,useMemo}=React;
 
-function Login({onLogin}){
-  const[pin,setPin]=useState("");
-  const[err,setErr]=useState("");
-  const submit=()=>{
-    if(pin==="1234"){onLogin("admin");}
-    else if(pin==="0000"){onLogin("member");}
-    else{setErr("Wrong PIN. Try again.");}
-  };
-  return(
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
-      <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:"40px 32px",width:"100%",maxWidth:340,textAlign:"center"}}>
-        <div style={{fontSize:32,marginBottom:12}}>💰</div>
-        <div style={{fontSize:20,fontWeight:700,marginBottom:4}}>Pardna Portal</div>
-        <div style={{fontSize:11,color:"#555",marginBottom:28}}>3200 Group · 9 Members</div>
-        <input
-          type="password"
-          placeholder="Enter PIN"
-          value={pin}
-          onChange={e=>setPin(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&submit()}
-          style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"12px 14px",color:"#e8e0d4",fontFamily:"monospace",fontSize:16,textAlign:"center",marginBottom:10,outline:"none"}}
-        />
-        {err&&<div style={{fontSize:11,color:"#a83232",marginBottom:10}}>{err}</div>}
-        <button
-          onClick={submit}
-          style={{width:"100%",background:"rgba(201,123,46,0.2)",border:"1px solid rgba(201,123,46,0.4)",borderRadius:8,padding:"12px",color:"#c97b2e",fontFamily:"monospace",fontSize:13,cursor:"pointer",fontWeight:600}}>
-          Enter
-        </button>
-        <div style={{fontSize:10,color:"#333",marginTop:20}}>Admin PIN: 1234 · Member PIN: 0000</div>
-      </div>
-    </div>
-  );
-}
+const SUPA=supabase.createClient(
+  "https://tobycrfvxrziijyqitsw.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvYnljcmZ2eHJ6aWlqeXFpdHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzkwNjQsImV4cCI6MjA5MzMxNTA2NH0.8IgLF4fBDGBpLoiV1jg7ufCMGD6uGyAxg9X1QCjbMfY"
+);
 
-const MEMBERS=[
-  {id:1,name:"Veronica",hand:null},
-  {id:2,name:"Brittany",hand:null},
-  {id:3,name:"Michael", hand:null},
-  {id:4,name:"Bobby",   hand:27},
-  {id:5,name:"James",   hand:26},
-  {id:6,name:"Anthony", hand:null},
-  {id:7,name:"Tricia",  hand:null},
-  {id:8,name:"Barbara", hand:null},
-  {id:9,name:"Edwin",   hand:null},
-];
 const AVCOLS=["#C97B2E","#2E7D6E","#7B3F8C","#2E5F9B","#A83232","#5B8A2E","#8C5B2E","#2E7B8C","#7B6A2E"];
 const START=new Date("2025-06-13");
 const NWEEKS=32;
@@ -74,12 +37,6 @@ function genWeeks(){
 }
 const WEEKS=genWeeks();
 
-function initPay(){
-  const p={};
-  MEMBERS.forEach(m=>{p[m.id]={};WEEKS.forEach(w=>{p[m.id][w.n]=false;});});
-  return p;
-}
-
 function getCurWeek(){
   const t=new Date();let c=0;
   WEEKS.forEach(w=>{if(t>=w.full)c=w.n;});
@@ -88,38 +45,250 @@ function getCurWeek(){
 
 function Av({name,idx,size=36}){
   const c=AVCOLS[idx%AVCOLS.length];
-  return<div style={{width:size,height:size,borderRadius:"50%",background:c+"28",border:`1.5px solid ${c}55`,color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:700,flexShrink:0}}>{name[0]}</div>;
+  return<div style={{width:size,height:size,borderRadius:"50%",background:c+"28",border:`1.5px solid ${c}55`,color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.4,fontWeight:700,flexShrink:0}}>{name[0]}</div>;
 }
+
 function HBadge({hand}){
   return hand
     ?<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",fontWeight:600}}>Hand #{hand}</span>
     :<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(255,255,255,.05)",color:"#555",border:"1px solid #2a2a2a"}}>Unassigned</span>;
 }
 
-function App(){
-  const[role,setRole]=useState(null);
-  const[pay,setPay]=useState(initPay);
+function Loading(){
+  return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:32,marginBottom:12}}>💰</div>
+      <div style={{fontSize:13,color:"#555"}}>Loading Pardna Portal...</div>
+    </div>
+  </div>;
+}
+
+// ── CHANGE PIN FORM ────────────────────────────────────────────────────
+function ChangePinForm({currentPin,onSave,onCancel}){
+  const[cur,setCur]=useState("");
+  const[n1,setN1]=useState("");
+  const[n2,setN2]=useState("");
+  const[err,setErr]=useState("");
+  const[ok,setOk]=useState(false);
+  const[saving,setSaving]=useState(false);
+
+  const submit=async()=>{
+    if(cur!==currentPin){setErr("Current PIN incorrect.");return;}
+    if(n1.length<4){setErr("New PIN must be at least 4 digits.");return;}
+    if(n1!==n2){setErr("PINs don't match.");return;}
+    setSaving(true);
+    await onSave(n1);
+    setSaving(false);
+    setOk(true);
+  };
+
+  if(ok)return(
+    <div style={{textAlign:"center",padding:"40px 20px"}}>
+      <div style={{fontSize:28,marginBottom:12}}>✅</div>
+      <div style={{fontWeight:600,marginBottom:8}}>PIN Updated</div>
+      <div style={{fontSize:11,color:"#555",marginBottom:20}}>New PIN saved successfully.</div>
+      <button onClick={onCancel} style={{background:"rgba(46,125,110,.15)",border:"1px solid rgba(46,125,110,.35)",borderRadius:8,padding:"10px 24px",color:"#2e7d6e",fontSize:12}}>Done</button>
+    </div>
+  );
+
+  return(
+    <div style={{maxWidth:320,margin:"0 auto",padding:20}}>
+      {[["Current PIN",cur,setCur],["New PIN",n1,setN1],["Confirm New PIN",n2,setN2]].map(([lbl,val,set])=>(
+        <div key={lbl} style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:"#555",marginBottom:6}}>{lbl}</div>
+          <input type="password" value={val} onChange={e=>set(e.target.value)}
+            style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:14,textAlign:"center"}}/>
+        </div>
+      ))}
+      {err&&<div style={{fontSize:11,color:"#a83232",marginBottom:12}}>{err}</div>}
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={onCancel} style={{flex:1,background:"none",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px",color:"#555",fontSize:12}}>Cancel</button>
+        <button onClick={submit} disabled={saving} style={{flex:1,background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,padding:"10px",color:"#c97b2e",fontSize:12,fontWeight:600}}>
+          {saving?"Saving...":"Save PIN"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── LOGIN ──────────────────────────────────────────────────────────────
+function Login({members,adminPin,onLogin}){
+  const[name,setName]=useState("");
+  const[pin,setPin]=useState("");
+  const[err,setErr]=useState("");
+  const[loading,setLoading]=useState(false);
+
+  const submit=async()=>{
+    setLoading(true);setErr("");
+    if(name==="__admin__"&&pin===adminPin){onLogin("admin",null);return;}
+    const m=members.find(m=>m.name.toLowerCase()===name.toLowerCase()&&m.pin===pin);
+    if(m){onLogin("member",m);}
+    else{setErr("Name or PIN incorrect.");}
+    setLoading(false);
+  };
+
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
+      <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:"40px 32px",width:"100%",maxWidth:340}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:32,marginBottom:10}}>💰</div>
+          <div style={{fontSize:20,fontWeight:700}}>Pardna Portal</div>
+          <div style={{fontSize:11,color:"#555",marginTop:4}}>3200 Group · 9 Members</div>
+        </div>
+        <div style={{fontSize:11,color:"#555",marginBottom:6}}>Your Name</div>
+        <select value={name} onChange={e=>setName(e.target.value)}
+          style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"11px 12px",color:name?"#e8e0d4":"#555",fontSize:13,marginBottom:12}}>
+          <option value="">Select your name...</option>
+          {members.map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
+          <option value="__admin__">Admin</option>
+        </select>
+        <div style={{fontSize:11,color:"#555",marginBottom:6}}>PIN</div>
+        <input type="password" placeholder="Enter your PIN" value={pin}
+          onChange={e=>setPin(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&submit()}
+          style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"11px 12px",fontSize:15,textAlign:"center",marginBottom:10}}/>
+        {err&&<div style={{fontSize:11,color:"#a83232",marginBottom:10,textAlign:"center"}}>{err}</div>}
+        <button onClick={submit} disabled={loading}
+          style={{width:"100%",background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,padding:12,color:"#c97b2e",fontSize:13,fontWeight:600}}>
+          {loading?"Entering...":"Enter"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── MEMBER VIEW ────────────────────────────────────────────────────────
+function MemberView({member,payments,cw,onLogout,onPinSaved}){
+  const[subTab,setSubTab]=useState("my");
+  const idx=member.id-1;
+  const paid=WEEKS.filter(w=>w.n<=cw&&payments[w.n]).length;
+  const due=Math.min(cw,NWEEKS);
+  const arr=due-paid;
+  const amt=paid*100;
+  const drawWeek=member.hand?WEEKS[member.hand-1]:null;
+
+  const saveMemberPin=async(newPin)=>{
+    await SUPA.from("members").update({pin:newPin}).eq("id",member.id);
+    onPinSaved(member.id,newPin);
+  };
+
+  return(
+    <div style={{minHeight:"100vh",background:"#111"}}>
+      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <Av name={member.name} idx={idx}/>
+          <div>
+            <div style={{fontSize:15,fontWeight:700}}>{member.name}</div>
+            <div style={{fontSize:10,color:"#555",marginTop:2}}><HBadge hand={member.hand}/></div>
+          </div>
+        </div>
+        <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
+      </div>
+      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px"}}>
+        {["my","schedule","pin"].map(t=>(
+          <button key={t} onClick={()=>setSubTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${subTab===t?"#c97b2e":"transparent"}`,color:subTab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap"}}>
+            {t==="my"?"My Payments":t==="schedule"?"Schedule":"Change PIN"}
+          </button>
+        ))}
+      </div>
+      <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
+        {subTab==="my"&&(
+          <div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
+              {[["Pot","$3,200","#c97b2e"],["Hand",member.hand?`#${member.hand}`:"TBD","#7B3F8C"],["Draw",drawWeek?drawWeek.date:"TBD",null],["Paid",`${paid}/${due}`,arr>0?"#a83232":"#2e7d6e"],["Collected",`$${amt.toLocaleString()}`,"#c97b2e"],["Status",arr>0?`${arr} behind`:"Current",arr>0?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
+                <div key={l} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 16px",flex:1,minWidth:90}}>
+                  <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{l}</div>
+                  <div style={{fontSize:18,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
+              <div style={{fontSize:11,color:"#555",marginBottom:14}}>Weekly Contributions</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                {WEEKS.map(w=>{
+                  const p=payments[w.n],d=w.n<=cw,cur=w.n===cw;
+                  return<div key={w.n} title={`Week ${w.n} · ${w.date} · ${p?"PAID":d?"UNPAID":"upcoming"}`}
+                    style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
+                      border:`1.5px solid ${cur?"rgba(201,123,46,.6)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
+                      background:p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
+                      color:p?"#2e7d6e":d?"#a83232":"#333"}}>
+                    {w.n}
+                  </div>;
+                })}
+              </div>
+              <div style={{display:"flex",gap:14,marginTop:12,fontSize:10,color:"#555"}}>
+                <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
+                <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
+                <span><span style={{color:"#333"}}>■</span> Upcoming</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {subTab==="schedule"&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:8}}>
+            {WEEKS.map(w=>{
+              const isMyHand=member.hand===w.n;
+              const past=w.n<cw,cur=w.n===cw;
+              return(
+                <div key={w.n} style={{background:isMyHand?"rgba(201,123,46,.12)":cur?"rgba(46,125,110,.08)":"#1c1c1c",border:`1px solid ${isMyHand?"rgba(201,123,46,.5)":cur?"rgba(46,125,110,.3)":"#2a2a2a"}`,borderRadius:10,padding:"11px 13px",opacity:past&&!cur&&!isMyHand?.5:1}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
+                    {isMyHand&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>YOUR HAND</span>}
+                    {cur&&!isMyHand&&<span style={{fontSize:9,color:"#2e7d6e"}}>NOW</span>}
+                  </div>
+                  <div style={{fontSize:11,color:"#666",marginBottom:6}}>{w.date}</div>
+                  {isMyHand?<div style={{fontSize:12,fontWeight:700,color:"#c97b2e"}}>$3,200 → You</div>:<div style={{fontSize:11,color:"#333"}}>—</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {subTab==="pin"&&(
+          <ChangePinForm
+            currentPin={member.pin}
+            onSave={saveMemberPin}
+            onCancel={()=>setSubTab("my")}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── ADMIN VIEW ─────────────────────────────────────────────────────────
+function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAdminPinSaved,onMemberPinReset}){
   const[tab,setTab]=useState("overview");
   const[fmem,setFmem]=useState(null);
-  const cw=React.useMemo(getCurWeek,[]);
-  const admin=role==="admin";
 
-  if(!role)return<Login onLogin={setRole}/>;
-
-  const stats=MEMBERS.map((m,i)=>{
-    const paid=WEEKS.filter(w=>w.n<=cw&&pay[m.id][w.n]).length;
+  const stats=members.map((m,i)=>{
+    const mp=allPayments[m.id]||{};
+    const paid=WEEKS.filter(w=>w.n<=cw&&mp[w.n]).length;
     const due=Math.min(cw,NWEEKS);
     return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100};
   });
 
   const totCol=stats.reduce((s,m)=>s+m.amt,0);
   const totArr=stats.reduce((s,m)=>s+m.arr,0);
-  const health=Math.round((stats.reduce((s,m)=>s+m.paid,0)/(MEMBERS.length*cw))*100);
-  const potMap={};MEMBERS.forEach(m=>{if(m.hand)potMap[m.hand]=m;});
+  const health=Math.round((stats.reduce((s,m)=>s+m.paid,0)/(members.length*cw))*100);
+  const potMap={};members.forEach(m=>{if(m.hand)potMap[m.hand]=m;});
 
-  const toggle=(mid,wn)=>{
-    if(!admin)return;
-    setPay(p=>({...p,[mid]:{...p[mid],[wn]:!p[mid][wn]}}));
+  const toggle=async(mid,wn)=>{
+    const cur=allPayments[mid]?.[wn]||false;
+    const newVal=!cur;
+    setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:newVal}}));
+    await SUPA.from("payments").update({paid:newVal}).eq("member_id",mid).eq("week_num",wn);
+  };
+
+  const saveAdminPin=async(newPin)=>{
+    await SUPA.from("admin_settings").update({pin:newPin}).eq("id",1);
+    onAdminPinSaved(newPin);
+  };
+
+  const resetMemberPin=async(id)=>{
+    const defaults=["1111","2222","3333","4444","5555","6666","7777","8888","9999"];
+    const defPin=defaults[id-1];
+    await SUPA.from("members").update({pin:defPin}).eq("id",id);
+    onMemberPinReset(id,defPin);
   };
 
   const card=(label,val,sub,color)=>(
@@ -130,121 +299,115 @@ function App(){
     </div>
   );
 
-  const Overview=()=>(
-    <div>
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
-        {card("Pot Size","$3,200",null,"#c97b2e")}
-        {card("Collected",`$${totCol.toLocaleString()}`,`Week ${cw} of ${NWEEKS}`)}
-        {card("Health",`${health}%`,null,health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232")}
-        {card("Arrears",totArr,"payments behind",totArr>0?"#a83232":"#2e7d6e")}
-      </div>
-      <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Members</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10}}>
-        {stats.map(m=>(
-          <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");}}
-            style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
-            <Av name={m.name} idx={m.idx}/>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}><span style={{fontSize:13,fontWeight:600}}>{m.name}</span><HBadge hand={m.hand}/></div>
-              <div style={{background:"#2a2a2a",borderRadius:4,height:4,overflow:"hidden"}}>
-                <div style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,height:"100%",background:m.arr>0?"#a83232":"#2e7d6e",borderRadius:4}}/>
-              </div>
-              <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}>
-                <span>{m.paid}/{m.due} paid</span>
-                <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const Schedule=()=>(
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(165px,1fr))",gap:8}}>
-      {WEEKS.map(w=>{
-        const rec=potMap[w.n];
-        const past=w.n<cw,cur=w.n===cw;
-        const midx=rec?MEMBERS.findIndex(m=>m.id===rec.id):-1;
-        return(
-          <div key={w.n} style={{background:cur?"rgba(201,123,46,.08)":"#1c1c1c",border:`1px solid ${cur?"rgba(201,123,46,.35)":"#2a2a2a"}`,borderRadius:10,padding:"12px 14px",opacity:past&&!cur?.55:1}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
-              {cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}
-              {past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}
-            </div>
-            <div style={{fontSize:11,color:"#666",marginBottom:8}}>{w.date}</div>
-            {rec
-              ?<div style={{display:"flex",alignItems:"center",gap:8}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>$3,200</div></div></div>
-              :<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>
-            }
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  const Payments=()=>{
-    const show=fmem?stats.filter(m=>m.id===fmem):stats;
-    return(
-      <div>
-        <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
-          <span style={{fontSize:11,color:"#555"}}>Filter:</span>
-          <button onClick={()=>setFmem(null)} style={{background:!fmem?"rgba(201,123,46,.12)":"none",border:`1px solid ${!fmem?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:!fmem?"#c97b2e":"#555",cursor:"pointer",fontFamily:"monospace",fontSize:11,padding:"4px 11px"}}>All</button>
-          {stats.map(m=><button key={m.id} onClick={()=>setFmem(fmem===m.id?null:m.id)} style={{background:fmem===m.id?"rgba(201,123,46,.12)":"none",border:`1px solid ${fmem===m.id?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:fmem===m.id?"#c97b2e":"#555",cursor:"pointer",fontFamily:"monospace",fontSize:11,padding:"4px 11px"}}>{m.name}</button>)}
-        </div>
-        {!admin&&<div style={{background:"rgba(46,125,110,.1)",border:"1px solid rgba(46,125,110,.25)",borderRadius:8,padding:"8px 14px",fontSize:11,color:"#2e7d6e",marginBottom:14}}>View-only mode.</div>}
-        {show.map(m=>(
-          <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
-              <Av name={m.name} idx={m.idx}/>
-              <div>
-                <div style={{fontSize:14,fontWeight:600,display:"flex",gap:8,alignItems:"center"}}>{m.name}<HBadge hand={m.hand}/></div>
-                <div style={{fontSize:11,color:"#555",marginTop:3}}>{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · ${m.amt.toLocaleString()}</div>
-              </div>
-            </div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-              {WEEKS.map(w=>{
-                const paid=pay[m.id][w.n],due=w.n<=cw,cur=w.n===cw;
-                return<div key={w.n} title={`Week ${w.n} · ${w.date}`} onClick={()=>due&&toggle(m.id,w.n)}
-                  style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
-                    border:`1.5px solid ${cur?"rgba(201,123,46,.6)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
-                    background:paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
-                    color:paid?"#2e7d6e":due?"#a83232":"#333",
-                    cursor:due&&admin?"pointer":"default"}}>
-                  {w.n}
-                </div>;
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
   return(
     <div style={{minHeight:"100vh",background:"#111"}}>
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
         <div>
-          <div style={{fontSize:16,fontWeight:700}}>💰 3200 Pardna</div>
+          <div style={{fontSize:16,fontWeight:700}}>💰 3200 Pardna — Admin</div>
           <div style={{fontSize:10,color:"#555",marginTop:2}}>Jun 13 2025 → Jan 16 2026</div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",borderRadius:20,padding:"4px 12px",fontSize:11}}>Week {cw}</span>
-          <button onClick={()=>setRole(null)} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",cursor:"pointer",fontFamily:"monospace",fontSize:11,padding:"4px 10px"}}>Logout</button>
+          <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
         </div>
       </div>
+
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
-        {["overview","schedule","payments","members"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",cursor:"pointer",fontFamily:"monospace",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap"}}>
+        {["overview","payments","schedule","members","settings"].map(t=>(
+          <button key={t} onClick={()=>setTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap",textTransform:"capitalize"}}>
             {t}
           </button>
         ))}
       </div>
+
       <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
-        {tab==="overview"&&<Overview/>}
-        {tab==="schedule"&&<Schedule/>}
-        {tab==="payments"&&<Payments/>}
+        {tab==="overview"&&(
+          <div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
+              {card("Pot Size","$3,200",null,"#c97b2e")}
+              {card("Collected",`$${totCol.toLocaleString()}`,`Week ${cw} of ${NWEEKS}`)}
+              {card("Health",`${health}%`,null,health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232")}
+              {card("Arrears",totArr,"payments behind",totArr>0?"#a83232":"#2e7d6e")}
+            </div>
+            <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Members</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10}}>
+              {stats.map(m=>(
+                <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");}}
+                  style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
+                  <Av name={m.name} idx={m.idx}/>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}><span style={{fontSize:13,fontWeight:600}}>{m.name}</span><HBadge hand={m.hand}/></div>
+                    <div style={{background:"#2a2a2a",borderRadius:4,height:4,overflow:"hidden"}}>
+                      <div style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,height:"100%",background:m.arr>0?"#a83232":"#2e7d6e",borderRadius:4}}/>
+                    </div>
+                    <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}>
+                      <span>{m.paid}/{m.due} paid</span>
+                      <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab==="payments"&&(
+          <div>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
+              <span style={{fontSize:11,color:"#555"}}>Filter:</span>
+              <button onClick={()=>setFmem(null)} style={{background:!fmem?"rgba(201,123,46,.12)":"none",border:`1px solid ${!fmem?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:!fmem?"#c97b2e":"#555",fontSize:11,padding:"4px 11px"}}>All</button>
+              {stats.map(m=><button key={m.id} onClick={()=>setFmem(fmem===m.id?null:m.id)} style={{background:fmem===m.id?"rgba(201,123,46,.12)":"none",border:`1px solid ${fmem===m.id?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:fmem===m.id?"#c97b2e":"#555",fontSize:11,padding:"4px 11px"}}>{m.name}</button>)}
+            </div>
+            {(fmem?stats.filter(m=>m.id===fmem):stats).map(m=>(
+              <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
+                  <Av name={m.name} idx={m.idx}/>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:600,display:"flex",gap:8,alignItems:"center"}}>{m.name}<HBadge hand={m.hand}/></div>
+                    <div style={{fontSize:11,color:"#555",marginTop:3}}>{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · ${m.amt.toLocaleString()}</div>
+                  </div>
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {WEEKS.map(w=>{
+                    const paid=allPayments[m.id]?.[w.n]||false,due=w.n<=cw,cur=w.n===cw;
+                    return<div key={w.n} title={`Week ${w.n} · ${w.date}`} onClick={()=>due&&toggle(m.id,w.n)}
+                      style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
+                        border:`1.5px solid ${cur?"rgba(201,123,46,.6)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
+                        background:paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
+                        color:paid?"#2e7d6e":due?"#a83232":"#333",cursor:due?"pointer":"default"}}>
+                      {w.n}
+                    </div>;
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab==="schedule"&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(165px,1fr))",gap:8}}>
+            {WEEKS.map(w=>{
+              const rec=potMap[w.n];
+              const past=w.n<cw,cur=w.n===cw;
+              const midx=rec?members.findIndex(m=>m.id===rec.id):-1;
+              return(
+                <div key={w.n} style={{background:cur?"rgba(201,123,46,.08)":"#1c1c1c",border:`1px solid ${cur?"rgba(201,123,46,.35)":"#2a2a2a"}`,borderRadius:10,padding:"12px 14px",opacity:past&&!cur?.55:1}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
+                    {cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}
+                    {past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}
+                  </div>
+                  <div style={{fontSize:11,color:"#666",marginBottom:8}}>{w.date}</div>
+                  {rec
+                    ?<div style={{display:"flex",alignItems:"center",gap:8}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>$3,200</div></div></div>
+                    :<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>
+                  }
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {tab==="members"&&(
           <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden"}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 70px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
@@ -267,9 +430,87 @@ function App(){
             })}
           </div>
         )}
+
+        {tab==="settings"&&(
+          <div style={{maxWidth:500}}>
+            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,marginBottom:16,overflow:"hidden"}}>
+              <div style={{padding:"14px 20px",borderBottom:"1px solid #2a2a2a",fontSize:13,fontWeight:600}}>🔐 Change Admin PIN</div>
+              <ChangePinForm currentPin={adminPin} onSave={saveAdminPin} onCancel={()=>{}}/>
+            </div>
+            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden"}}>
+              <div style={{padding:"14px 20px",borderBottom:"1px solid #2a2a2a",fontSize:13,fontWeight:600}}>👥 Reset Member PINs</div>
+              <div style={{padding:"8px 0"}}>
+                {members.map((m,i)=>(
+                  <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 20px",borderBottom:"1px solid #1a1a1a"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <Av name={m.name} idx={i} size={30}/>
+                      <span style={{fontSize:13}}>{m.name}</span>
+                    </div>
+                    <button onClick={()=>resetMemberPin(m.id)}
+                      style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"5px 12px"}}>
+                      Reset to default
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{padding:"10px 20px",fontSize:10,color:"#444"}}>Resetting returns member PIN to their default (1111–9999).</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+// ── ROOT ───────────────────────────────────────────────────────────────
+function App(){
+  const[members,setMembers]=useState([]);
+  const[allPayments,setAllPayments]=useState({});
+  const[adminPin,setAdminPin]=useState("1234");
+  const[role,setRole]=useState(null);
+  const[currentMember,setCurrentMember]=useState(null);
+  const[loading,setLoading]=useState(true);
+  const cw=useMemo(getCurWeek,[]);
+
+  useEffect(()=>{
+    async function load(){
+      const[{data:mem},{data:pay},{data:adm}]=await Promise.all([
+        SUPA.from("members").select("*").order("id"),
+        SUPA.from("payments").select("*"),
+        SUPA.from("admin_settings").select("*").eq("id",1).single(),
+      ]);
+      setMembers(mem||[]);
+      const pm={};
+      (pay||[]).forEach(r=>{
+        if(!pm[r.member_id])pm[r.member_id]={};
+        pm[r.member_id][r.week_num]=r.paid;
+      });
+      setAllPayments(pm);
+      if(adm)setAdminPin(adm.pin);
+      setLoading(false);
+    }
+    load();
+  },[]);
+
+  const handleLogin=(r,m)=>{setRole(r);setCurrentMember(m);};
+  const handleLogout=()=>{setRole(null);setCurrentMember(null);};
+
+  const handleMemberPin=(id,newPin)=>{
+    setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:newPin}:m));
+    if(currentMember?.id===id)setCurrentMember(prev=>({...prev,pin:newPin}));
+  };
+
+  const handleMemberPinReset=(id,defPin)=>{
+    setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:defPin}:m));
+  };
+
+  if(loading)return<Loading/>;
+  if(!role)return<Login members={members} adminPin={adminPin} onLogin={handleLogin}/>;
+  if(role==="member"){
+    const mp=allPayments[currentMember.id]||{};
+    return<MemberView member={currentMember} payments={mp} cw={cw} onLogout={handleLogout} onPinSaved={handleMemberPin}/>;
+  }
+  if(role==="admin")return<AdminView members={members} allPayments={allPayments} setAllPayments={setAllPayments} cw={cw} onLogout={handleLogout} adminPin={adminPin} onAdminPinSaved={setAdminPin} onMemberPinReset={handleMemberPinReset}/>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
