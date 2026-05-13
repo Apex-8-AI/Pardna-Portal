@@ -33,12 +33,7 @@ function genWeeks(){
   return Array.from({length:NWEEKS},(_,i)=>{
     const d=new Date(START);d.setDate(d.getDate()+i*7);
     const draw=new Date(d);draw.setDate(draw.getDate()+1);
-    return{
-      n:i+1,
-      date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),
-      drawDate:draw.toLocaleDateString("en-US",{month:"short",day:"numeric"}),
-      full:d
-    };
+    return{n:i+1,date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),drawDate:draw.toLocaleDateString("en-US",{month:"short",day:"numeric"}),full:d};
   });
 }
 const WEEKS=genWeeks();
@@ -62,10 +57,7 @@ function HBadge({hand}){
 
 function Loading(){
   return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
-    <div style={{textAlign:"center"}}>
-      <div style={{fontSize:32,marginBottom:12}}>💰</div>
-      <div style={{fontSize:13,color:"#555"}}>Loading Pardna Portal...</div>
-    </div>
+    <div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>💰</div><div style={{fontSize:13,color:"#555"}}>Loading Pardna Portal...</div></div>
   </div>;
 }
 
@@ -88,7 +80,7 @@ function ChangePinForm({currentPin,onSave,onCancel}){
     <div style={{textAlign:"center",padding:"40px 20px"}}>
       <div style={{fontSize:28,marginBottom:12}}>✅</div>
       <div style={{fontWeight:600,marginBottom:8}}>PIN Updated</div>
-      <div style={{fontSize:11,color:"#555",marginBottom:20}}>New PIN saved successfully.</div>
+      <div style={{fontSize:11,color:"#555",marginBottom:20}}>Saved successfully.</div>
       <button onClick={onCancel} style={{background:"rgba(46,125,110,.15)",border:"1px solid rgba(46,125,110,.35)",borderRadius:8,padding:"10px 24px",color:"#2e7d6e",fontSize:12}}>Done</button>
     </div>
   );
@@ -183,18 +175,21 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
         </div>
         <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
       </div>
+
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px"}}>
-        {["my","schedule","pin"].map(t=>(
+        {["my","draw","pin"].map(t=>(
           <button key={t} onClick={()=>setSubTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${subTab===t?"#c97b2e":"transparent"}`,color:subTab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap"}}>
-            {t==="my"?"My Payments":t==="schedule"?"Schedule":"Change PIN"}
+            {t==="my"?"My Payments":t==="draw"?"My Draw Date":"Change PIN"}
           </button>
         ))}
       </div>
+
       <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
+
         {subTab==="my"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
-              {[["Pot","$3,200","#c97b2e"],["Hand",member.hand?`#${member.hand}`:"TBD","#7B3F8C"],["Deposit",drawWeek?drawWeek.date:"TBD",null],["Draw",drawWeek?drawWeek.drawDate:"TBD","#c97b2e"],["Paid",`${paid}/${due}`,arr>0?"#a83232":"#2e7d6e"],["Status",arr>0?`${arr} behind`:"Current",arr>0?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
+              {[["Pot","$3,200","#c97b2e"],["Hand",member.hand?`#${member.hand}`:"TBD","#7B3F8C"],["Paid",`${paid}/${due}`,arr>0?"#a83232":"#2e7d6e"],["Collected",`$${amt.toLocaleString()}`,"#c97b2e"],["Status",arr>0?`${arr} behind`:"Current",arr>0?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
                 <div key={l} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 16px",flex:1,minWidth:90}}>
                   <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{l}</div>
                   <div style={{fontSize:16,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div>
@@ -206,7 +201,7 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {WEEKS.map(w=>{
                   const p=payments[w.n],d=w.n<=cw,cur=w.n===cw;
-                  return<div key={w.n} title={`Week ${w.n} · Deposit: ${w.date} · Draw: ${w.drawDate} · ${p?"PAID":d?"UNPAID":"upcoming"}`}
+                  return<div key={w.n} title={`Week ${w.n} · Deposit: ${w.date} · ${p?"PAID":d?"UNPAID":"upcoming"}`}
                     style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
                       border:`1.5px solid ${cur?"rgba(201,123,46,.6)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
                       background:p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
@@ -223,26 +218,38 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
             </div>
           </div>
         )}
-        {subTab==="schedule"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(165px,1fr))",gap:8}}>
-            {WEEKS.map(w=>{
-              const isMyHand=member.hand===w.n;
-              const past=w.n<cw,cur=w.n===cw;
-              return(
-                <div key={w.n} style={{background:isMyHand?"rgba(201,123,46,.12)":cur?"rgba(46,125,110,.08)":"#1c1c1c",border:`1px solid ${isMyHand?"rgba(201,123,46,.5)":cur?"rgba(46,125,110,.3)":"#2a2a2a"}`,borderRadius:10,padding:"11px 13px",opacity:past&&!cur&&!isMyHand?.5:1}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                    <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
-                    {isMyHand&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>YOUR HAND</span>}
-                    {cur&&!isMyHand&&<span style={{fontSize:9,color:"#2e7d6e"}}>NOW</span>}
+
+        {subTab==="draw"&&(
+          <div>
+            {drawWeek?(
+              <div style={{background:"#1c1c1c",border:"1px solid rgba(201,123,46,.3)",borderRadius:16,padding:28,textAlign:"center"}}>
+                <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".6px",marginBottom:16}}>Your Draw Info</div>
+                <div style={{fontSize:48,marginBottom:16}}>💰</div>
+                <div style={{fontSize:28,fontWeight:700,color:"#c97b2e",marginBottom:6}}>$3,200</div>
+                <div style={{fontSize:13,color:"#888",marginBottom:24}}>Hand #{member.hand}</div>
+                <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
+                  <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:12,padding:"16px 24px",minWidth:130}}>
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>💳 Deposit Due</div>
+                    <div style={{fontSize:18,fontWeight:700}}>{drawWeek.date}</div>
+                    <div style={{fontSize:10,color:"#555",marginTop:4}}>Friday · Week {drawWeek.n}</div>
                   </div>
-                  <div style={{fontSize:10,color:"#666"}}>💳 {w.date}</div>
-                  <div style={{fontSize:10,color:"#c97b2e",marginBottom:6}}>💰 {w.drawDate}</div>
-                  {isMyHand?<div style={{fontSize:12,fontWeight:700,color:"#c97b2e"}}>$3,200 → You</div>:<div style={{fontSize:11,color:"#333"}}>—</div>}
+                  <div style={{background:"#161616",border:"1px solid rgba(201,123,46,.25)",borderRadius:12,padding:"16px 24px",minWidth:130}}>
+                    <div style={{fontSize:10,color:"#c97b2e",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>💰 Draw Date</div>
+                    <div style={{fontSize:18,fontWeight:700,color:"#c97b2e"}}>{drawWeek.drawDate}</div>
+                    <div style={{fontSize:10,color:"#555",marginTop:4}}>Saturday · Week {drawWeek.n}</div>
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ):(
+              <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:40,textAlign:"center"}}>
+                <div style={{fontSize:32,marginBottom:12}}>📋</div>
+                <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>Hand Not Yet Assigned</div>
+                <div style={{fontSize:12,color:"#555"}}>Your draw date will appear here once the admin assigns your hand.</div>
+              </div>
+            )}
           </div>
         )}
+
         {subTab==="pin"&&(
           <ChangePinForm currentPin={member.pin} onSave={saveMemberPin} onCancel={()=>setSubTab("my")}/>
         )}
