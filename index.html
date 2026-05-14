@@ -11,7 +11,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#111;color:#e8e0d4;font-family:monospace;min-height:100vh}
-input,select{outline:none;color:#e8e0d4;font-family:monospace}
+input,select,textarea{outline:none;color:#e8e0d4;font-family:monospace}
 button{font-family:monospace;cursor:pointer}
 </style>
 </head>
@@ -149,7 +149,7 @@ function Login({members,adminPin,onLogin}){
   );
 }
 
-function MemberView({member,payments,cw,onLogout,onPinSaved}){
+function MemberView({member,payments,borrows,donations,borrowRequests,cw,onLogout,onPinSaved,onDonationUpdate,onBorrowRequest}){
   const[subTab,setSubTab]=useState("my");
   const idx=member.id-1;
   const paid=WEEKS.filter(w=>w.n<=cw&&payments[w.n]).length;
@@ -157,11 +157,52 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
   const arr=due-paid;
   const amt=paid*100;
   const drawWeek=member.hand?WEEKS[member.hand-1]:null;
+  const eligibleBorrow=Math.floor(amt*0.5);
+  const myBorrows=borrows.filter(b=>b.member_id===member.id);
+  const myDonation=donations.find(d=>d.member_id===member.id);
+  const donationAmt=myDonation?parseFloat(myDonation.amount):0;
+  const adjustedDraw=3200-donationAmt;
+  const myRequests=borrowRequests.filter(r=>r.member_id===member.id);
+  const pendingRequest=myRequests.find(r=>r.status==="pending");
+  const activeBorrow=myBorrows.find(b=>!b.repaid);
+
+  const[donationInput,setDonationInput]=useState(donationAmt>0?String(donationAmt):"");
+  const[donationSaving,setDonationSaving]=useState(false);
+  const[donationMsg,setDonationMsg]=useState("");
+  const[borrowAmt,setBorrowAmt]=useState("");
+  const[borrowReason,setBorrowReason]=useState("");
+  const[borrowMsg,setBorrowMsg]=useState("");
+  const[borrowSaving,setBorrowSaving]=useState(false);
+
+  const saveDonation=async()=>{
+    setDonationSaving(true);
+    const val=parseFloat(donationInput)||0;
+    await onDonationUpdate(member.id,val,myDonation?.id);
+    setDonationMsg(val===0?"Donation cleared.":"Donation saved! Your draw will be adjusted.");
+    setDonationSaving(false);
+    setTimeout(()=>setDonationMsg(""),3000);
+  };
+
+  const submitBorrowRequest=async()=>{
+    if(!borrowAmt||parseFloat(borrowAmt)<100){setBorrowMsg("Minimum borrow is $100.");return;}
+    if(parseFloat(borrowAmt)>eligibleBorrow){setBorrowMsg(`Max eligible is $${eligibleBorrow}.`);return;}
+    if(activeBorrow){setBorrowMsg("You have an active unpaid borrow.");return;}
+    setBorrowSaving(true);
+    await onBorrowRequest(member.id,parseFloat(borrowAmt),borrowReason);
+    setBorrowMsg("Request submitted! Admin will review shortly.");
+    setBorrowAmt("");setBorrowReason("");
+    setBorrowSaving(false);
+  };
 
   const saveMemberPin=async(newPin)=>{
     await SUPA.from("members").update({pin:newPin}).eq("id",member.id);
     onPinSaved(member.id,newPin);
   };
+
+  const ibox=(val,set,placeholder,type="text")=>(
+    <input type={type} value={val} onChange={e=>set(e.target.value)} placeholder={placeholder}
+      style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:10}}/>
+  );
 
   return(
     <div style={{minHeight:"100vh",background:"#111"}}>
@@ -176,15 +217,16 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
         <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
       </div>
 
-      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px"}}>
-        {["my","draw","pin"].map(t=>(
+      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
+        {["my","draw","borrow","donate","pin"].map(t=>(
           <button key={t} onClick={()=>setSubTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${subTab===t?"#c97b2e":"transparent"}`,color:subTab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap"}}>
-            {t==="my"?"My Payments":t==="draw"?"My Draw Date":"Change PIN"}
+            {t==="my"?"My Payments":t==="draw"?"My Draw":t==="borrow"?"Borrow":t==="donate"?"Donate":"Change PIN"}
           </button>
         ))}
       </div>
 
       <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
+
         {subTab==="my"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
@@ -200,7 +242,7 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {WEEKS.map(w=>{
                   const p=payments[w.n],d=w.n<=cw,cur=w.n===cw;
-                  return<div key={w.n} title={`Week ${w.n} · Deposit: ${w.date} · ${p?"PAID":d?"UNPAID":"upcoming"}`}
+                  return<div key={w.n} title={`Week ${w.n} · ${w.date} · ${p?"PAID":d?"UNPAID":"upcoming"}`}
                     style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
                       border:`1.5px solid ${cur?"rgba(201,123,46,.6)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
                       background:p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
@@ -224,7 +266,8 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
               <div style={{background:"#1c1c1c",border:"1px solid rgba(201,123,46,.3)",borderRadius:16,padding:28,textAlign:"center"}}>
                 <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".6px",marginBottom:16}}>Your Draw Info</div>
                 <div style={{fontSize:48,marginBottom:16}}>💰</div>
-                <div style={{fontSize:28,fontWeight:700,color:"#c97b2e",marginBottom:6}}>$3,200</div>
+                <div style={{fontSize:28,fontWeight:700,color:"#c97b2e",marginBottom:4}}>${adjustedDraw.toLocaleString()}</div>
+                {donationAmt>0&&<div style={{fontSize:11,color:"#555",marginBottom:4}}>Draw $3,200 · Donation −${donationAmt} · You receive ${adjustedDraw.toLocaleString()}</div>}
                 <div style={{fontSize:13,color:"#888",marginBottom:24}}>Hand #{member.hand}</div>
                 <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
                   <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:12,padding:"16px 24px",minWidth:130}}>
@@ -243,9 +286,109 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
               <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:40,textAlign:"center"}}>
                 <div style={{fontSize:32,marginBottom:12}}>📋</div>
                 <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>Hand Not Yet Assigned</div>
-                <div style={{fontSize:12,color:"#555"}}>Your draw date will appear here once the admin assigns your hand.</div>
+                <div style={{fontSize:12,color:"#555"}}>Your draw date will appear once admin assigns your hand.</div>
               </div>
             )}
+          </div>
+        )}
+
+        {subTab==="borrow"&&(
+          <div>
+            {/* Eligibility card */}
+            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
+              <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Borrow Eligibility</div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                {[["Paid In",`$${amt.toLocaleString()}`,"#e8e0d4"],["Max Eligible",`$${eligibleBorrow.toLocaleString()}`,"#c97b2e"],["Active Borrow",activeBorrow?`$${activeBorrow.amount}`:"None",activeBorrow?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
+                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:100}}>
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div>
+                    <div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Active borrow status */}
+            {activeBorrow&&(
+              <div style={{background:"rgba(168,50,50,.1)",border:"1px solid rgba(168,50,50,.25)",borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginBottom:6}}>Active Borrow</div>
+                <div style={{fontSize:11,color:"#888"}}>Amount: ${activeBorrow.amount} · Borrowed: {activeBorrow.borrowed_on} · Status: Unpaid</div>
+              </div>
+            )}
+
+            {/* Pending request */}
+            {pendingRequest&&(
+              <div style={{background:"rgba(201,123,46,.1)",border:"1px solid rgba(201,123,46,.25)",borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#c97b2e",marginBottom:6}}>⏳ Request Pending</div>
+                <div style={{fontSize:11,color:"#888"}}>Amount: ${pendingRequest.amount} · Submitted: {pendingRequest.requested_on}</div>
+                <div style={{fontSize:11,color:"#555",marginTop:4}}>Admin will review shortly.</div>
+              </div>
+            )}
+
+            {/* Request form */}
+            {!activeBorrow&&!pendingRequest&&(
+              <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
+                <div style={{fontSize:12,fontWeight:600,marginBottom:14}}>Request a Borrow</div>
+                <div style={{fontSize:11,color:"#555",marginBottom:6}}>Amount (min $100, max ${eligibleBorrow})</div>
+                {ibox(borrowAmt,setBorrowAmt,"Enter amount","number")}
+                <div style={{fontSize:11,color:"#555",marginBottom:6}}>Reason (optional)</div>
+                <textarea value={borrowReason} onChange={e=>setBorrowReason(e.target.value)} placeholder="Brief reason..."
+                  style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:10,minHeight:70,resize:"vertical"}}/>
+                {borrowMsg&&<div style={{fontSize:11,color:borrowMsg.includes("submitted")?"#2e7d6e":"#a83232",marginBottom:10}}>{borrowMsg}</div>}
+                <button onClick={submitBorrowRequest} disabled={borrowSaving}
+                  style={{width:"100%",background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,padding:"11px",color:"#c97b2e",fontSize:13,fontWeight:600}}>
+                  {borrowSaving?"Submitting...":"Submit Request"}
+                </button>
+              </div>
+            )}
+
+            {/* Borrow history */}
+            {myBorrows.length>0&&(
+              <div style={{marginTop:14}}>
+                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Borrow History</div>
+                {myBorrows.map(b=>(
+                  <div key={b.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600}}>${b.amount}</div>
+                      <div style={{fontSize:10,color:"#555",marginTop:3}}>{b.borrowed_on}</div>
+                    </div>
+                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:b.repaid?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",color:b.repaid?"#2e7d6e":"#a83232",border:`1px solid ${b.repaid?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>
+                      {b.repaid?"Repaid":"Outstanding"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {subTab==="donate"&&(
+          <div>
+            <div style={{background:"#1c1c1c",border:"1px solid rgba(46,125,110,.25)",borderRadius:16,padding:24,marginBottom:14,textAlign:"center"}}>
+              <div style={{fontSize:32,marginBottom:10}}>🤝</div>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Community Donation</div>
+              <div style={{fontSize:12,color:"#555",marginBottom:0,lineHeight:1.6}}>
+                Completely voluntary. Any amount you choose will be deducted from your draw when your hand comes up. You can change or remove this anytime.
+              </div>
+            </div>
+
+            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
+                {[["Your Draw","$3,200","#e8e0d4"],["Donation",`$${donationAmt}`,"#2e7d6e"],["You Receive",`$${(3200-donationAmt).toLocaleString()}`,"#c97b2e"]].map(([l,v,c])=>(
+                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}>
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div>
+                    <div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:11,color:"#555",marginBottom:6}}>Donation amount (enter 0 to remove)</div>
+              <input type="number" value={donationInput} onChange={e=>setDonationInput(e.target.value)} placeholder="e.g. 100"
+                style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:14,textAlign:"center",marginBottom:10}}/>
+              {donationMsg&&<div style={{fontSize:11,color:"#2e7d6e",marginBottom:10}}>{donationMsg}</div>}
+              <button onClick={saveDonation} disabled={donationSaving}
+                style={{width:"100%",background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,padding:"11px",color:"#2e7d6e",fontSize:13,fontWeight:600}}>
+                {donationSaving?"Saving...":"Save Donation"}
+              </button>
+            </div>
           </div>
         )}
 
@@ -257,26 +400,62 @@ function MemberView({member,payments,cw,onLogout,onPinSaved}){
   );
 }
 
-function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAdminPinSaved,onMemberPinReset}){
+function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donations,borrowRequests,setBorrowRequests,cw,onLogout,adminPin,onAdminPinSaved,onMemberPinReset}){
   const[tab,setTab]=useState("overview");
   const[fmem,setFmem]=useState(null);
+  const[borrowForm,setBorrowForm]=useState({});
+  const[borrowMsg,setBorrowMsg]=useState({});
 
   const stats=members.map((m,i)=>{
     const mp=allPayments[m.id]||{};
     const paid=WEEKS.filter(w=>w.n<=cw&&mp[w.n]).length;
     const due=Math.min(cw,NWEEKS);
-    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100};
+    const myBorrows=borrows.filter(b=>b.member_id===m.id);
+    const activeBorrow=myBorrows.find(b=>!b.repaid);
+    const myDonation=donations.find(d=>d.member_id===m.id);
+    const donationAmt=myDonation?parseFloat(myDonation.amount):0;
+    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100,eligibleBorrow:Math.floor(paid*100*0.5),activeBorrow,donationAmt,myBorrows};
   });
 
   const totCol=stats.reduce((s,m)=>s+m.amt,0);
   const totArr=stats.reduce((s,m)=>s+m.arr,0);
   const health=Math.round((stats.reduce((s,m)=>s+m.paid,0)/(members.length*cw))*100);
+  const totDonations=donations.reduce((s,d)=>s+parseFloat(d.amount||0),0);
   const potMap={};members.forEach(m=>{if(m.hand)potMap[m.hand]=m;});
+  const pendingRequests=borrowRequests.filter(r=>r.status==="pending");
 
   const toggle=async(mid,wn)=>{
     const cur=allPayments[mid]?.[wn]||false;
     setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));
     await SUPA.from("payments").update({paid:!cur}).eq("member_id",mid).eq("week_num",wn);
+  };
+
+  const logBorrow=async(mid)=>{
+    const amt=parseFloat(borrowForm[mid]||0);
+    if(!amt||amt<100){setBorrowMsg(p=>({...p,[mid]:"Min $100."}));return;}
+    const m=stats.find(s=>s.id===mid);
+    if(amt>m.eligibleBorrow){setBorrowMsg(p=>({...p,[mid]:`Max $${m.eligibleBorrow}.`}));return;}
+    const{data}=await SUPA.from("borrows").insert({member_id:mid,amount:amt}).select().single();
+    if(data){
+      setBorrows(prev=>[...prev,data]);
+      setBorrowForm(p=>({...p,[mid]:""}));
+      setBorrowMsg(p=>({...p,[mid]:"Borrow logged."}));
+      setTimeout(()=>setBorrowMsg(p=>({...p,[mid]:""})),3000);
+    }
+  };
+
+  const toggleRepaid=async(borrowId,current)=>{
+    await SUPA.from("borrows").update({repaid:!current,repaid_on:!current?new Date().toISOString().split("T")[0]:null}).eq("id",borrowId);
+    setBorrows(prev=>prev.map(b=>b.id===borrowId?{...b,repaid:!current}:b));
+  };
+
+  const reviewRequest=async(reqId,approved,memberId,amount)=>{
+    await SUPA.from("borrow_requests").update({status:approved?"approved":"declined",reviewed_on:new Date().toISOString().split("T")[0]}).eq("id",reqId);
+    if(approved){
+      const{data}=await SUPA.from("borrows").insert({member_id:memberId,amount}).select().single();
+      if(data)setBorrows(prev=>[...prev,data]);
+    }
+    setBorrowRequests(prev=>prev.map(r=>r.id===reqId?{...r,status:approved?"approved":"declined"}:r));
   };
 
   const saveAdminPin=async(newPin)=>{
@@ -307,15 +486,21 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
           <div style={{fontSize:10,color:"#555",marginTop:2}}>Jun 13 2025 → Jan 16 2026</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {pendingRequests.length>0&&<span style={{background:"rgba(168,50,50,.2)",color:"#a83232",border:"1px solid rgba(168,50,50,.3)",borderRadius:20,padding:"4px 10px",fontSize:11}}>⚠️ {pendingRequests.length} request{pendingRequests.length>1?"s":""}</span>}
           <span style={{background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",borderRadius:20,padding:"4px 12px",fontSize:11}}>Week {cw}</span>
           <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
         </div>
       </div>
+
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
-        {["overview","payments","schedule","members","settings"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap",textTransform:"capitalize"}}>{t}</button>
+        {["overview","payments","borrows","donations","requests","schedule","members","settings"].map(t=>(
+          <button key={t} onClick={()=>setTab(t)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap",textTransform:"capitalize",position:"relative"}}>
+            {t}
+            {t==="requests"&&pendingRequests.length>0&&<span style={{background:"#a83232",color:"#fff",borderRadius:"50%",fontSize:9,padding:"1px 5px",marginLeft:4}}>{pendingRequests.length}</span>}
+          </button>
         ))}
       </div>
+
       <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
 
         {tab==="overview"&&(
@@ -325,7 +510,25 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
               {card("Collected",`$${totCol.toLocaleString()}`,`Week ${cw} of ${NWEEKS}`)}
               {card("Health",`${health}%`,null,health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232")}
               {card("Arrears",totArr,"payments behind",totArr>0?"#a83232":"#2e7d6e")}
+              {card("Reserve",`$${totDonations.toLocaleString()}`,"community fund","#2e7d6e")}
             </div>
+            {pendingRequests.length>0&&(
+              <div style={{background:"rgba(168,50,50,.08)",border:"1px solid rgba(168,50,50,.2)",borderRadius:12,padding:"14px 18px",marginBottom:20}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginBottom:10}}>⚠️ Pending Borrow Requests</div>
+                {pendingRequests.map(r=>{
+                  const m=members.find(x=>x.id===r.member_id);
+                  return(
+                    <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:8}}>
+                      <div style={{fontSize:12}}><span style={{fontWeight:600}}>{m?.name}</span> · ${r.amount} · {r.requested_on}{r.reason&&` · "${r.reason}"`}</div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button>
+                        <button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Members</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10}}>
               {stats.map(m=>(
@@ -367,7 +570,7 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {WEEKS.map(w=>{
                     const paid=allPayments[m.id]?.[w.n]||false,due=w.n<=cw,cur=w.n===cw;
-                    return<div key={w.n} title={`Week ${w.n} · Deposit: ${w.date} · Draw: ${w.drawDate}`} onClick={()=>due&&toggle(m.id,w.n)}
+                    return<div key={w.n} title={`Week ${w.n} · ${w.date}`} onClick={()=>due&&toggle(m.id,w.n)}
                       style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",
                         border:`1.5px solid ${cur?"rgba(201,123,46,.6)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
                         background:paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
@@ -381,12 +584,123 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
           </div>
         )}
 
+        {tab==="borrows"&&(
+          <div>
+            {stats.map(m=>(
+              <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
+                  <Av name={m.name} idx={m.idx}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{m.name}</div>
+                    <div style={{fontSize:11,color:"#555"}}>Paid in: ${m.amt.toLocaleString()} · Eligible: <span style={{color:"#c97b2e"}}>${m.eligibleBorrow.toLocaleString()}</span> · {m.activeBorrow?<span style={{color:"#a83232"}}>Active borrow: ${m.activeBorrow.amount}</span>:<span style={{color:"#2e7d6e"}}>No active borrow</span>}</div>
+                  </div>
+                </div>
+                {/* Log borrow form */}
+                <div style={{display:"flex",gap:8,marginBottom:m.myBorrows.length>0?12:0}}>
+                  <input type="number" placeholder="Amount" value={borrowForm[m.id]||""} onChange={e=>setBorrowForm(p=>({...p,[m.id]:e.target.value}))}
+                    style={{flex:1,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
+                  <button onClick={()=>logBorrow(m.id)} style={{background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,color:"#c97b2e",fontSize:12,padding:"8px 14px"}}>Log Borrow</button>
+                </div>
+                {borrowMsg[m.id]&&<div style={{fontSize:11,color:"#c97b2e",marginBottom:8}}>{borrowMsg[m.id]}</div>}
+                {/* Borrow history */}
+                {m.myBorrows.map(b=>(
+                  <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#161616",borderRadius:8,padding:"10px 14px",marginBottom:6}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600}}>${b.amount}</div>
+                      <div style={{fontSize:10,color:"#555"}}>{b.borrowed_on}</div>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:b.repaid?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",color:b.repaid?"#2e7d6e":"#a83232",border:`1px solid ${b.repaid?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>
+                        {b.repaid?"Repaid":"Outstanding"}
+                      </span>
+                      <button onClick={()=>toggleRepaid(b.id,b.repaid)} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:10,padding:"3px 8px"}}>
+                        {b.repaid?"Mark Unpaid":"Mark Repaid"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab==="donations"&&(
+          <div>
+            <div style={{background:"#1c1c1c",border:"1px solid rgba(46,125,110,.25)",borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:13,fontWeight:600}}>🤝 Community Reserve Fund</div>
+              <div style={{fontSize:24,fontWeight:700,color:"#2e7d6e"}}>${totDonations.toLocaleString()}</div>
+            </div>
+            {stats.map(m=>{
+              const dw=m.hand?WEEKS[m.hand-1]:null;
+              return(
+                <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 18px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <Av name={m.name} idx={m.idx} size={32}/>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600}}>{m.name}</div>
+                      <div style={{fontSize:10,color:"#555",marginTop:2}}>{dw?`Draw: ${dw.drawDate}`:"No hand assigned"}</div>
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    {m.donationAmt>0?(
+                      <div>
+                        <div style={{fontSize:16,fontWeight:700,color:"#2e7d6e"}}>+${m.donationAmt}</div>
+                        <div style={{fontSize:10,color:"#555"}}>Receives ${(3200-m.donationAmt).toLocaleString()}</div>
+                      </div>
+                    ):(
+                      <div style={{fontSize:11,color:"#444"}}>No donation pledged</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {tab==="requests"&&(
+          <div>
+            <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Borrow Requests</div>
+            {borrowRequests.length===0&&<div style={{fontSize:12,color:"#444",padding:20,textAlign:"center"}}>No requests yet.</div>}
+            {borrowRequests.sort((a,b)=>a.status==="pending"?-1:1).map(r=>{
+              const m=members.find(x=>x.id===r.member_id);
+              return(
+                <div key={r.id} style={{background:"#1c1c1c",border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.25)":"rgba(168,50,50,.2)"}`,borderRadius:12,padding:"16px 20px",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <Av name={m?.name||"?"} idx={r.member_id-1} size={32}/>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600}}>{m?.name} · <span style={{color:"#c97b2e"}}>${r.amount}</span></div>
+                        <div style={{fontSize:10,color:"#555",marginTop:3}}>{r.requested_on}{r.reason&&` · "${r.reason}"`}</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,
+                        background:r.status==="pending"?"rgba(201,123,46,.15)":r.status==="approved"?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",
+                        color:r.status==="pending"?"#c97b2e":r.status==="approved"?"#2e7d6e":"#a83232",
+                        border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>
+                        {r.status}
+                      </span>
+                      {r.status==="pending"&&(
+                        <>
+                          <button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button>
+                          <button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {tab==="schedule"&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:8}}>
             {WEEKS.map(w=>{
               const rec=potMap[w.n];
               const past=w.n<cw,cur=w.n===cw;
               const midx=rec?members.findIndex(m=>m.id===rec.id):-1;
+              const recStat=rec?stats.find(s=>s.id===rec.id):null;
               return(
                 <div key={w.n} style={{background:cur?"rgba(201,123,46,.08)":"#1c1c1c",border:`1px solid ${cur?"rgba(201,123,46,.35)":"#2a2a2a"}`,borderRadius:10,padding:"12px 14px",opacity:past&&!cur?.55:1}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
@@ -397,7 +711,10 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
                   <div style={{fontSize:10,color:"#666"}}>💳 {w.date}</div>
                   <div style={{fontSize:10,color:"#c97b2e",marginBottom:8}}>💰 {w.drawDate}</div>
                   {rec
-                    ?<div style={{display:"flex",alignItems:"center",gap:8}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>$3,200</div></div></div>
+                    ?<div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>${recStat?3200-recStat.donationAmt:3200}</div></div></div>
+                      {recStat?.donationAmt>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.donationAmt} to reserve</div>}
+                    </div>
                     :<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>
                   }
                 </div>
@@ -445,10 +762,7 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
                       <Av name={m.name} idx={i} size={30}/>
                       <span style={{fontSize:13}}>{m.name}</span>
                     </div>
-                    <button onClick={()=>resetMemberPin(m.id)}
-                      style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"5px 12px"}}>
-                      Reset to default
-                    </button>
+                    <button onClick={()=>resetMemberPin(m.id)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"5px 12px"}}>Reset to default</button>
                   </div>
                 ))}
               </div>
@@ -464,6 +778,9 @@ function AdminView({members,allPayments,setAllPayments,cw,onLogout,adminPin,onAd
 function App(){
   const[members,setMembers]=useState([]);
   const[allPayments,setAllPayments]=useState({});
+  const[borrows,setBorrows]=useState([]);
+  const[donations,setDonations]=useState([]);
+  const[borrowRequests,setBorrowRequests]=useState([]);
   const[adminPin,setAdminPin]=useState("1234");
   const[role,setRole]=useState(null);
   const[currentMember,setCurrentMember]=useState(null);
@@ -472,9 +789,14 @@ function App(){
 
   useEffect(()=>{
     async function load(){
-      const memRes=await SUPA.from("members").select("*").order("id");
-      const payRes=await SUPA.from("payments").select("*");
-      const admRes=await SUPA.from("admin_settings").select("*").eq("id",1).single();
+      const[memRes,payRes,admRes,borRes,donRes,reqRes]=await Promise.all([
+        SUPA.from("members").select("*").order("id"),
+        SUPA.from("payments").select("*"),
+        SUPA.from("admin_settings").select("*").eq("id",1).single(),
+        SUPA.from("borrows").select("*").order("borrowed_on",{ascending:false}),
+        SUPA.from("donations").select("*"),
+        SUPA.from("borrow_requests").select("*").order("requested_on",{ascending:false}),
+      ]);
       setMembers(memRes.data||[]);
       const pm={};
       (payRes.data||[]).forEach(r=>{
@@ -483,6 +805,9 @@ function App(){
       });
       setAllPayments(pm);
       if(admRes.data)setAdminPin(admRes.data.pin);
+      setBorrows(borRes.data||[]);
+      setDonations(donRes.data||[]);
+      setBorrowRequests(reqRes.data||[]);
       setLoading(false);
     }
     load();
@@ -496,13 +821,37 @@ function App(){
   };
   const handleMemberPinReset=(id,defPin)=>setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:defPin}:m));
 
+  const handleDonationUpdate=async(memberId,amount,existingId)=>{
+    if(existingId){
+      await SUPA.from("donations").update({amount}).eq("id",existingId);
+      setDonations(prev=>prev.map(d=>d.id===existingId?{...d,amount}:d));
+    } else if(amount>0){
+      const{data}=await SUPA.from("donations").insert({member_id:memberId,amount}).select().single();
+      if(data)setDonations(prev=>[...prev,data]);
+    }
+  };
+
+  const handleBorrowRequest=async(memberId,amount,reason)=>{
+    const{data}=await SUPA.from("borrow_requests").insert({member_id:memberId,amount,reason}).select().single();
+    if(data)setBorrowRequests(prev=>[...prev,data]);
+  };
+
   if(loading)return<Loading/>;
   if(!role)return<Login members={members} adminPin={adminPin} onLogin={handleLogin}/>;
   if(role==="member"){
     const mp=allPayments[currentMember.id]||{};
-    return<MemberView member={currentMember} payments={mp} cw={cw} onLogout={handleLogout} onPinSaved={handleMemberPin}/>;
+    return<MemberView
+      member={currentMember} payments={mp} borrows={borrows} donations={donations}
+      borrowRequests={borrowRequests} cw={cw} onLogout={handleLogout}
+      onPinSaved={handleMemberPin} onDonationUpdate={handleDonationUpdate}
+      onBorrowRequest={handleBorrowRequest}/>;
   }
-  if(role==="admin")return<AdminView members={members} allPayments={allPayments} setAllPayments={setAllPayments} cw={cw} onLogout={handleLogout} adminPin={adminPin} onAdminPinSaved={setAdminPin} onMemberPinReset={handleMemberPinReset}/>;
+  if(role==="admin")return<AdminView
+    members={members} allPayments={allPayments} setAllPayments={setAllPayments}
+    borrows={borrows} setBorrows={setBorrows} donations={donations}
+    borrowRequests={borrowRequests} setBorrowRequests={setBorrowRequests}
+    cw={cw} onLogout={handleLogout} adminPin={adminPin}
+    onAdminPinSaved={setAdminPin} onMemberPinReset={handleMemberPinReset}/>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
