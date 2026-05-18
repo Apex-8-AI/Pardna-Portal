@@ -29,47 +29,20 @@ const SESSION_TIMEOUT=30*60*1000;
 const MAX_ATTEMPTS=5;
 const LOCKOUT_TIME=5*60*1000;
 const LATE_FEE_PER_DAY=20;
-const LATE_FEE_START_HOUR=20; // 8pm
+const LATE_FEE_START_HOUR=20;
 
 const secStore={attempts:{},lockouts:{},session:null};
-
 function genToken(){return Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,"0")).join("");}
 function getLockoutKey(name){return`lockout_${name.toLowerCase()}`;}
-function isLockedOut(name){
-  const key=getLockoutKey(name);
-  const lockTime=secStore.lockouts[key];
-  if(!lockTime)return false;
-  if(Date.now()-lockTime>LOCKOUT_TIME){delete secStore.lockouts[key];delete secStore.attempts[key];return false;}
-  return true;
-}
-function getLockoutRemaining(name){
-  const key=getLockoutKey(name);
-  const lockTime=secStore.lockouts[key];
-  if(!lockTime)return 0;
-  return Math.max(0,Math.ceil((LOCKOUT_TIME-(Date.now()-lockTime))/1000));
-}
-function recordFailedAttempt(name){
-  const key=getLockoutKey(name);
-  secStore.attempts[key]=(secStore.attempts[key]||0)+1;
-  if(secStore.attempts[key]>=MAX_ATTEMPTS)secStore.lockouts[key]=Date.now();
-  return MAX_ATTEMPTS-secStore.attempts[key];
-}
+function isLockedOut(name){const key=getLockoutKey(name);const lockTime=secStore.lockouts[key];if(!lockTime)return false;if(Date.now()-lockTime>LOCKOUT_TIME){delete secStore.lockouts[key];delete secStore.attempts[key];return false;}return true;}
+function getLockoutRemaining(name){const key=getLockoutKey(name);const lockTime=secStore.lockouts[key];if(!lockTime)return 0;return Math.max(0,Math.ceil((LOCKOUT_TIME-(Date.now()-lockTime))/1000));}
+function recordFailedAttempt(name){const key=getLockoutKey(name);secStore.attempts[key]=(secStore.attempts[key]||0)+1;if(secStore.attempts[key]>=MAX_ATTEMPTS)secStore.lockouts[key]=Date.now();return MAX_ATTEMPTS-secStore.attempts[key];}
 function clearAttempts(name){const key=getLockoutKey(name);delete secStore.attempts[key];delete secStore.lockouts[key];}
 function createSession(role,member){const token=genToken();secStore.session={role,member,token,expires:Date.now()+SESSION_TIMEOUT};return token;}
 function validateSession(token){if(!secStore.session||secStore.session.token!==token||Date.now()>secStore.session.expires)return null;return secStore.session;}
 function refreshSession(token){if(secStore.session&&secStore.session.token===token)secStore.session.expires=Date.now()+SESSION_TIMEOUT;}
 function destroySession(){secStore.session=null;}
-
-// Calculate late fee days from 8pm Friday
-function calcLateFee(lateDateStr){
-  if(!lateDateStr)return 0;
-  const lateDate=new Date(lateDateStr);
-  const now=new Date();
-  const diffMs=now-lateDate;
-  if(diffMs<=0)return 0;
-  const days=Math.floor(diffMs/(1000*60*60*24));
-  return days*LATE_FEE_PER_DAY;
-}
+function calcLateFee(lateDateStr){if(!lateDateStr)return 0;const lateDate=new Date(lateDateStr);const now=new Date();const diffMs=now-lateDate;if(diffMs<=0)return 0;const days=Math.floor(diffMs/(1000*60*60*24));return days*LATE_FEE_PER_DAY;}
 
 const AVCOLS=["#C97B2E","#2E7D6E","#7B3F8C","#2E5F9B","#A83232","#5B8A2E","#8C5B2E","#2E7B8C","#7B6A2E","#3A7B8C"];
 const START=new Date("2025-06-13");
@@ -79,38 +52,46 @@ function genWeeks(){
   return Array.from({length:NWEEKS},(_,i)=>{
     const d=new Date(START);d.setDate(d.getDate()+i*7);
     const draw=new Date(d);draw.setDate(draw.getDate()+1);
-    // Late fee starts 8pm Friday
     const lateStart=new Date(d);lateStart.setHours(LATE_FEE_START_HOUR,0,0,0);
     return{n:i+1,date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),drawDate:draw.toLocaleDateString("en-US",{month:"short",day:"numeric"}),full:d,lateStart};
   });
 }
 const WEEKS=genWeeks();
-
 function getCurWeek(){const t=new Date();let c=0;WEEKS.forEach(w=>{if(t>=w.full)c=w.n;});return Math.max(1,c);}
 
-function Av({name,idx,size=36}){
-  const c=AVCOLS[idx%AVCOLS.length];
-  return<div style={{width:size,height:size,borderRadius:"50%",background:c+"28",border:`1.5px solid ${c}55`,color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.4,fontWeight:700,flexShrink:0}}>{name[0]}</div>;
-}
+function Av({name,idx,size=36}){const c=AVCOLS[idx%AVCOLS.length];return<div style={{width:size,height:size,borderRadius:"50%",background:c+"28",border:`1.5px solid ${c}55`,color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.4,fontWeight:700,flexShrink:0}}>{name[0]}</div>;}
+function HBadge({hand}){return hand?<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",fontWeight:600}}>Hand #{hand}</span>:<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(255,255,255,.05)",color:"#555",border:"1px solid #2a2a2a"}}>Unassigned</span>;}
+function Loading(){return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>💰</div><div style={{fontSize:13,color:"#555"}}>Loading Pardna Portal...</div></div></div>;}
+function SessionWarning({remaining,onExtend}){if(remaining>60)return null;return<div style={{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:"#1c1c1c",border:"1px solid rgba(201,123,46,.4)",borderRadius:12,padding:"12px 20px",zIndex:100,display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,.5)"}}><span style={{fontSize:12,color:"#c97b2e"}}>⏱ Session expires in {remaining}s</span><button onClick={onExtend} style={{background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,color:"#c97b2e",fontSize:11,padding:"4px 12px"}}>Stay Logged In</button></div>;}
 
-function HBadge({hand}){
-  return hand
-    ?<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",fontWeight:600}}>Hand #{hand}</span>
-    :<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(255,255,255,.05)",color:"#555",border:"1px solid #2a2a2a"}}>Unassigned</span>;
-}
-
-function Loading(){
-  return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
-    <div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>💰</div><div style={{fontSize:13,color:"#555"}}>Loading Pardna Portal...</div></div>
-  </div>;
-}
-
-function SessionWarning({remaining,onExtend}){
-  if(remaining>60)return null;
+// ── DISCLOSURE ─────────────────────────────────────────────────────────
+function Disclosure(){
+  const sections=[
+    {title:"What this is",body:"This is a private rotating savings group between trusted members. It is not a bank, financial institution, or investment product. No interest is earned on contributions."},
+    {title:"Your commitment",body:"By joining you agree to contribute $100 every week for the full cycle without exception. Missing payments affects every member in the group."},
+    {title:"Payments",body:"All contributions are voluntary and made in good faith between members. A $20 per day late fee applies to any payment received after 8pm Friday. Late fees are deducted from your draw."},
+    {title:"Draws",body:"Your draw amount is based on your total contributions plus any extra capital added. Members who grow their contributions naturally unlock a larger payout when their draw arrives. Donations and late fees are deducted from your final draw amount."},
+    {title:"Extra Capital",body:"Members have the freedom to add extra capital any week entirely on their own terms. Think of it as quietly building your own payout — every dollar added works in your favor and comes back to you at draw time. Members receive their full Pardna draw on top of any extra capital contributed, meaning your draw and your extra capital are paid out together. For members throwing multiple hands, extra capital is divided evenly across each hand — growing every draw simultaneously. There is no cap, no pressure, and no fixed schedule. Your extra capital is yours."},
+    {title:"Borrowing",body:"Members with a strong payment history are eligible to borrow up to 50% of their total contributions. Members who build their contributions over time naturally expand their borrowing access — giving them a financial cushion when life calls for it. Approval is based on payment history and is at the banker's discretion."},
+    {title:"No guarantees",body:"The banker is a fellow member coordinating the group in good faith. This is not a legally registered financial service. Members join voluntarily and assume full responsibility for their participation."},
+    {title:"Privacy",body:"Your information is shared only within this group and never sold or distributed to third parties."},
+  ];
   return(
-    <div style={{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:"#1c1c1c",border:"1px solid rgba(201,123,46,.4)",borderRadius:12,padding:"12px 20px",zIndex:100,display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,.5)"}}>
-      <span style={{fontSize:12,color:"#c97b2e"}}>⏱ Session expires in {remaining}s</span>
-      <button onClick={onExtend} style={{background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,color:"#c97b2e",fontSize:11,padding:"4px 12px"}}>Stay Logged In</button>
+    <div style={{maxWidth:680,margin:"0 auto"}}>
+      <div style={{background:"linear-gradient(135deg,rgba(201,123,46,.1),rgba(46,125,110,.08))",border:"1px solid rgba(201,123,46,.2)",borderRadius:16,padding:"24px 28px",marginBottom:20,textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:10}}>💰</div>
+        <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>Welcome to the Pardna!</div>
+        <div style={{fontSize:12,color:"#888",lineHeight:1.7}}>A private rotating savings group built on trust, consistency, and community. Please review the information below so you know exactly how everything works.</div>
+      </div>
+      {sections.map(s=>(
+        <div key={s.title} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"18px 20px",marginBottom:10}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#c97b2e",marginBottom:8,textTransform:"uppercase",letterSpacing:".5px"}}>{s.title}</div>
+          <div style={{fontSize:12,color:"#aaa",lineHeight:1.8}}>{s.body}</div>
+        </div>
+      ))}
+      <div style={{background:"rgba(255,255,255,.02)",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 20px",marginTop:10,textAlign:"center"}}>
+        <div style={{fontSize:11,color:"#444",lineHeight:1.7}}>By accessing this portal you acknowledge that you have read and understood the terms outlined above. This group operates in good faith between all members.</div>
+      </div>
     </div>
   );
 }
@@ -126,14 +107,11 @@ function ChangePinForm({currentPin,onSave,onCancel}){
     if(n1===currentPin){setErr("New PIN must be different.");return;}
     setSaving(true);await onSave(n1);setSaving(false);setOk(true);
   };
-  if(ok)return(<div style={{textAlign:"center",padding:"40px 20px"}}><div style={{fontSize:28,marginBottom:12}}>✅</div><div style={{fontWeight:600,marginBottom:8}}>PIN Updated</div><button onClick={onCancel} style={{background:"rgba(46,125,110,.15)",border:"1px solid rgba(46,125,110,.35)",borderRadius:8,padding:"10px 24px",color:"#2e7d6e",fontSize:12}}>Done</button></div>);
+  if(ok)return<div style={{textAlign:"center",padding:"40px 20px"}}><div style={{fontSize:28,marginBottom:12}}>✅</div><div style={{fontWeight:600,marginBottom:8}}>PIN Updated</div><button onClick={onCancel} style={{background:"rgba(46,125,110,.15)",border:"1px solid rgba(46,125,110,.35)",borderRadius:8,padding:"10px 24px",color:"#2e7d6e",fontSize:12}}>Done</button></div>;
   return(
     <div style={{maxWidth:320,margin:"0 auto",padding:20}}>
       {[["Current PIN",cur,setCur],["New PIN",n1,setN1],["Confirm New PIN",n2,setN2]].map(([lbl,val,set])=>(
-        <div key={lbl} style={{marginBottom:14}}>
-          <div style={{fontSize:11,color:"#555",marginBottom:6}}>{lbl}</div>
-          <input type="password" value={val} onChange={e=>set(e.target.value)} style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:14,textAlign:"center"}}/>
-        </div>
+        <div key={lbl} style={{marginBottom:14}}><div style={{fontSize:11,color:"#555",marginBottom:6}}>{lbl}</div><input type="password" value={val} onChange={e=>set(e.target.value)} style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:14,textAlign:"center"}}/></div>
       ))}
       {err&&<div style={{fontSize:11,color:"#a83232",marginBottom:12}}>{err}</div>}
       <div style={{display:"flex",gap:10}}>
@@ -147,11 +125,7 @@ function ChangePinForm({currentPin,onSave,onCancel}){
 function Login({members,adminPin,onLogin}){
   const[name,setName]=useState("");const[pin,setPin]=useState("");const[err,setErr]=useState("");
   const[loading,setLoading]=useState(false);const[locked,setLocked]=useState(false);const[countdown,setCountdown]=useState(0);
-  useEffect(()=>{
-    if(!locked)return;
-    const interval=setInterval(()=>{const r=getLockoutRemaining(name);setCountdown(r);if(r<=0){setLocked(false);setErr("");}},1000);
-    return()=>clearInterval(interval);
-  },[locked,name]);
+  useEffect(()=>{if(!locked)return;const interval=setInterval(()=>{const r=getLockoutRemaining(name);setCountdown(r);if(r<=0){setLocked(false);setErr("");}},1000);return()=>clearInterval(interval);},[locked,name]);
   const submit=async()=>{
     if(!name){setErr("Please select your name.");return;}
     if(isLockedOut(name)){setLocked(true);setCountdown(getLockoutRemaining(name));setErr(`Locked. Try again in ${getLockoutRemaining(name)}s.`);return;}
@@ -160,21 +134,13 @@ function Login({members,adminPin,onLogin}){
     if(name==="__admin__"&&pin===adminPin){clearAttempts("__admin__");onLogin("admin",null);return;}
     const m=members.find(m=>m.name.toLowerCase()===name.toLowerCase()&&m.pin===pin);
     if(m){clearAttempts(name);onLogin("member",m);}
-    else{
-      const remaining=recordFailedAttempt(name);
-      if(isLockedOut(name)){setLocked(true);setCountdown(getLockoutRemaining(name));setErr("Too many failed attempts. Locked for 5 minutes.");}
-      else setErr(`Incorrect PIN. ${remaining} attempt${remaining!==1?"s":""} remaining.`);
-    }
+    else{const remaining=recordFailedAttempt(name);if(isLockedOut(name)){setLocked(true);setCountdown(getLockoutRemaining(name));setErr("Too many failed attempts. Locked for 5 minutes.");}else setErr(`Incorrect PIN. ${remaining} attempt${remaining!==1?"s":""} remaining.`);}
     setLoading(false);setPin("");
   };
   return(
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
       <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:"40px 32px",width:"100%",maxWidth:340}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:32,marginBottom:10}}>💰</div>
-          <div style={{fontSize:20,fontWeight:700}}>Pardna Portal</div>
-          <div style={{fontSize:11,color:"#555",marginTop:4}}>3200 Group · 10 Members</div>
-        </div>
+        <div style={{textAlign:"center",marginBottom:28}}><div style={{fontSize:32,marginBottom:10}}>💰</div><div style={{fontSize:20,fontWeight:700}}>Pardna Portal</div><div style={{fontSize:11,color:"#555",marginTop:4}}>3200 Group · 10 Members</div></div>
         <div style={{fontSize:11,color:"#555",marginBottom:6}}>Your Name</div>
         <select value={name} onChange={e=>{setName(e.target.value);setErr("");setLocked(false);}} style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"11px 12px",color:name?"#e8e0d4":"#555",fontSize:13,marginBottom:12}}>
           <option value="">Select your name...</option>
@@ -195,18 +161,7 @@ function Login({members,adminPin,onLogin}){
 function MemberView({member,payments,borrows,donations,borrowRequests,extraCapital,lateFees,cw,onLogout,onPinSaved,onDonationUpdate,onBorrowRequest,sessionToken}){
   const[subTab,setSubTab]=useState("my");
   const[sessionRemaining,setSessionRemaining]=useState(SESSION_TIMEOUT/1000);
-
-  useEffect(()=>{
-    const interval=setInterval(()=>{
-      const sess=validateSession(sessionToken);
-      if(!sess){onLogout();return;}
-      const remaining=Math.ceil((sess.expires-Date.now())/1000);
-      setSessionRemaining(remaining);
-      if(remaining<=0)onLogout();
-    },1000);
-    return()=>clearInterval(interval);
-  },[sessionToken]);
-
+  useEffect(()=>{const interval=setInterval(()=>{const sess=validateSession(sessionToken);if(!sess){onLogout();return;}const remaining=Math.ceil((sess.expires-Date.now())/1000);setSessionRemaining(remaining);if(remaining<=0)onLogout();},1000);return()=>clearInterval(interval);},[sessionToken]);
   const handleActivity=useCallback(()=>refreshSession(sessionToken),[sessionToken]);
   const extendSession=()=>setSessionRemaining(SESSION_TIMEOUT/1000);
 
@@ -216,27 +171,18 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
   const due=Math.min(cw,NWEEKS);
   const arr=due-paid;
   const baseAmt=paid*100;
-
-  // Extra capital for this member
   const myExtra=extraCapital.filter(e=>e.member_id===member.id);
   const totalExtra=myExtra.reduce((s,e)=>s+parseFloat(e.amount||0),0);
   const totalContributed=baseAmt+totalExtra;
   const eligibleBorrow=Math.floor(totalContributed*0.5);
-
-  // Draw calculation
   const baseDraw=numHands*3200;
   const extraPerHand=numHands>0?totalExtra/numHands:0;
   const drawWeek=member.hand?WEEKS[member.hand-1]:null;
-
-  // Late fees for this member
   const myLateFees=lateFees.filter(f=>f.member_id===member.id&&!f.paid);
   const totalLateFees=myLateFees.reduce((s,f)=>s+calcLateFee(f.late_date),0);
-
-  // Donations
   const myDonation=donations.find(d=>d.member_id===member.id);
   const donationAmt=myDonation?parseFloat(myDonation.amount):0;
   const finalDraw=baseDraw+totalExtra-donationAmt-totalLateFees;
-
   const myBorrows=borrows.filter(b=>b.member_id===member.id);
   const activeBorrow=myBorrows.find(b=>!b.repaid);
   const myRequests=borrowRequests.filter(r=>r.member_id===member.id);
@@ -250,28 +196,11 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
   const[borrowMsg,setBorrowMsg]=useState("");
   const[borrowSaving,setBorrowSaving]=useState(false);
 
-  const saveDonation=async()=>{
-    handleActivity();setDonationSaving(true);
-    const val=parseFloat(donationInput)||0;
-    await onDonationUpdate(member.id,val,myDonation?.id);
-    setDonationMsg(val===0?"Donation cleared.":"Donation saved!");
-    setDonationSaving(false);setTimeout(()=>setDonationMsg(""),3000);
-  };
-
-  const submitBorrowRequest=async()=>{
-    handleActivity();
-    const amt2=parseFloat(borrowAmt);
-    if(!amt2||amt2<100){setBorrowMsg("Minimum borrow is $100.");return;}
-    if(amt2>eligibleBorrow){setBorrowMsg(`Max eligible is $${eligibleBorrow}.`);return;}
-    if(activeBorrow){setBorrowMsg("You have an active unpaid borrow.");return;}
-    if(pendingRequest){setBorrowMsg("You already have a pending request.");return;}
-    setBorrowSaving(true);
-    await onBorrowRequest(member.id,amt2,borrowReason);
-    setBorrowMsg("Request submitted! Admin will review shortly.");
-    setBorrowAmt("");setBorrowReason("");setBorrowSaving(false);
-  };
-
+  const saveDonation=async()=>{handleActivity();setDonationSaving(true);const val=parseFloat(donationInput)||0;await onDonationUpdate(member.id,val,myDonation?.id);setDonationMsg(val===0?"Donation cleared.":"Donation saved!");setDonationSaving(false);setTimeout(()=>setDonationMsg(""),3000);};
+  const submitBorrowRequest=async()=>{handleActivity();const amt2=parseFloat(borrowAmt);if(!amt2||amt2<100){setBorrowMsg("Minimum borrow is $100.");return;}if(amt2>eligibleBorrow){setBorrowMsg(`Max eligible is $${eligibleBorrow}.`);return;}if(activeBorrow){setBorrowMsg("You have an active unpaid borrow.");return;}if(pendingRequest){setBorrowMsg("You already have a pending request.");return;}setBorrowSaving(true);await onBorrowRequest(member.id,amt2,borrowReason);setBorrowMsg("Request submitted! Admin will review shortly.");setBorrowAmt("");setBorrowReason("");setBorrowSaving(false);};
   const saveMemberPin=async(newPin)=>{await SUPA.from("members").update({pin:newPin}).eq("id",member.id);onPinSaved(member.id,newPin);};
+
+  const tabs=["my","draw","capital","borrow","donate","disclosure","pin"];
 
   return(
     <div style={{minHeight:"100vh",background:"#111"}} onClick={handleActivity} onKeyDown={handleActivity}>
@@ -279,63 +208,45 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <Av name={member.name} idx={idx}/>
-          <div>
-            <div style={{fontSize:15,fontWeight:700}}>{member.name}</div>
-            <div style={{fontSize:10,color:"#555",marginTop:2}}><HBadge hand={member.hand}/>{numHands>1&&<span style={{marginLeft:6,fontSize:10,color:"#7B3F8C"}}>{numHands} hands</span>}</div>
-          </div>
+          <div><div style={{fontSize:15,fontWeight:700}}>{member.name}</div><div style={{fontSize:10,color:"#555",marginTop:2}}><HBadge hand={member.hand}/>{numHands>1&&<span style={{marginLeft:6,fontSize:10,color:"#7B3F8C"}}>{numHands} hands</span>}</div></div>
         </div>
         <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
       </div>
-
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
-        {["my","draw","capital","borrow","donate","pin"].map(t=>(
+        {tabs.map(t=>(
           <button key={t} onClick={()=>{setSubTab(t);handleActivity();}} style={{background:"none",border:"none",borderBottom:`2px solid ${subTab===t?"#c97b2e":"transparent"}`,color:subTab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap"}}>
-            {t==="my"?"My Payments":t==="draw"?"My Draw":t==="capital"?"Extra Capital":t==="borrow"?"Borrow":t==="donate"?"Donate":"Change PIN"}
+            {t==="my"?"My Payments":t==="draw"?"My Draw":t==="capital"?"Extra Capital":t==="borrow"?"Borrow":t==="donate"?"Donate":t==="disclosure"?"Disclosure":"Change PIN"}
           </button>
         ))}
       </div>
-
       <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
-
         {subTab==="my"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
               {[["Base Paid",`$${baseAmt.toLocaleString()}`,"#e8e0d4"],["Extra Capital",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Total In",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Weeks",`${paid}/${due}`,arr>0?"#a83232":"#2e7d6e"],["Status",arr>0?`${arr} behind`:"Current",arr>0?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
-                <div key={l} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 16px",flex:1,minWidth:90}}>
-                  <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{l}</div>
-                  <div style={{fontSize:15,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div>
-                </div>
+                <div key={l} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{l}</div><div style={{fontSize:15,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div></div>
               ))}
             </div>
-
-            {/* Late fees alert */}
             {myLateFees.length>0&&(
               <div style={{background:"rgba(168,50,50,.1)",border:"1px solid rgba(168,50,50,.25)",borderRadius:12,padding:"14px 18px",marginBottom:14}}>
                 <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginBottom:8}}>⚠️ Late Fees Outstanding</div>
-                {myLateFees.map(f=>(
-                  <div key={f.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:4}}>
-                    <span>Week {f.week_num}</span>
-                    <span style={{color:"#a83232"}}>−${calcLateFee(f.late_date)} ({Math.floor((Date.now()-new Date(f.late_date))/(1000*60*60*24))} days late)</span>
-                  </div>
-                ))}
+                {myLateFees.map(f=><div key={f.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:4}}><span>Week {f.week_num}</span><span style={{color:"#a83232"}}>−${calcLateFee(f.late_date)} ({Math.floor((Date.now()-new Date(f.late_date))/(1000*60*60*24))} days late)</span></div>)}
                 <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginTop:8,borderTop:"1px solid rgba(168,50,50,.2)",paddingTop:8}}>Total: −${totalLateFees}</div>
               </div>
             )}
-
             <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
               <div style={{fontSize:11,color:"#555",marginBottom:14}}>Weekly Contributions</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {WEEKS.map(w=>{
                   const p=payments[w.n],d=w.n<=cw,cur=w.n===cw;
-                  const lf=lateFees.find(f=>f.member_id===member.id&&f.week_num===w.n);
-                  const isLate=lf&&!lf.paid;
+                  const lf=lateFees.find(f=>f.member_id===member.id&&f.week_num===w.n&&!f.paid);
+                  const isLate=!!lf;
                   return<div key={w.n} title={`Week ${w.n} · ${w.date}${isLate?" · LATE":""}`}
                     style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",
                       border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(168,50,50,.6)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
                       background:isLate?"rgba(168,50,50,.25)":p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
                       color:isLate?"#ff6b6b":p?"#2e7d6e":d?"#a83232":"#333"}}>
-                    {w.n}
-                    {isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#a83232"}}/>}
+                    {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#a83232"}}/>}
                   </div>;
                 })}
               </div>
@@ -348,7 +259,6 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             </div>
           </div>
         )}
-
         {subTab==="draw"&&(
           <div>
             {drawWeek?(
@@ -383,51 +293,36 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             )}
           </div>
         )}
-
         {subTab==="capital"&&(
           <div>
             <div style={{background:"#1c1c1c",border:"1px solid rgba(123,63,140,.3)",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
               <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Extra Capital Summary</div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
                 {[["Total Extra",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Total Contributed",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Borrow Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"]].map(([l,v,c])=>(
-                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:100}}>
-                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div>
-                    <div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div>
-                  </div>
+                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:100}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div></div>
                 ))}
               </div>
-              <div style={{fontSize:11,color:"#555",marginBottom:10}}>Extra capital is logged by admin on your behalf. Contact admin to add extra capital to your account.</div>
+              <div style={{fontSize:11,color:"#555"}}>Extra capital is logged by admin on your behalf. Contact admin to add extra capital to your account.</div>
             </div>
             {myExtra.length>0?(
               <div>
                 <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Extra Capital History</div>
                 {myExtra.map(e=>(
                   <div key={e.id} style={{background:"#1c1c1c",border:"1px solid rgba(123,63,140,.2)",borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600,color:"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div>
-                      <div style={{fontSize:10,color:"#555",marginTop:3}}>Week {e.week_num} · {e.logged_on}{e.note&&` · ${e.note}`}</div>
-                    </div>
+                    <div><div style={{fontSize:13,fontWeight:600,color:"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div><div style={{fontSize:10,color:"#555",marginTop:3}}>Week {e.week_num} · {e.logged_on}{e.note&&` · ${e.note}`}</div></div>
                   </div>
                 ))}
               </div>
-            ):(
-              <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:24,textAlign:"center"}}>
-                <div style={{fontSize:12,color:"#444"}}>No extra capital contributions yet.</div>
-              </div>
-            )}
+            ):<div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:24,textAlign:"center"}}><div style={{fontSize:12,color:"#444"}}>No extra capital contributions yet.</div></div>}
           </div>
         )}
-
         {subTab==="borrow"&&(
           <div>
             <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
               <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Borrow Eligibility</div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                 {[["Base Paid",`$${baseAmt.toLocaleString()}`,"#e8e0d4"],["Extra Capital",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Total In",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Max Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"],["Active Borrow",activeBorrow?`$${activeBorrow.amount}`:"None",activeBorrow?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
-                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}>
-                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div>
-                    <div style={{fontSize:16,fontWeight:700,color:c}}>{v}</div>
-                  </div>
+                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:16,fontWeight:700,color:c}}>{v}</div></div>
                 ))}
               </div>
             </div>
@@ -457,7 +352,6 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             )}
           </div>
         )}
-
         {subTab==="donate"&&(
           <div>
             <div style={{background:"#1c1c1c",border:"1px solid rgba(46,125,110,.25)",borderRadius:16,padding:24,marginBottom:14,textAlign:"center"}}>
@@ -468,10 +362,7 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
                 {[["Base Draw",`$${baseDraw.toLocaleString()}`,"#e8e0d4"],["Donation",`$${donationAmt}`,"#2e7d6e"],["You Receive",`$${finalDraw.toLocaleString()}`,"#c97b2e"]].map(([l,v,c])=>(
-                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}>
-                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div>
-                    <div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div>
-                  </div>
+                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div></div>
                 ))}
               </div>
               <div style={{fontSize:11,color:"#555",marginBottom:6}}>Donation amount (enter 0 to remove)</div>
@@ -481,7 +372,7 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             </div>
           </div>
         )}
-
+        {subTab==="disclosure"&&<Disclosure/>}
         {subTab==="pin"&&<ChangePinForm currentPin={member.pin} onSave={saveMemberPin} onCancel={()=>setSubTab("my")}/>}
       </div>
     </div>
@@ -497,17 +388,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
   const[extraForm,setExtraForm]=useState({});
   const[extraMsg,setExtraMsg]=useState({});
 
-  useEffect(()=>{
-    const interval=setInterval(()=>{
-      const sess=validateSession(sessionToken);
-      if(!sess){onLogout();return;}
-      const remaining=Math.ceil((sess.expires-Date.now())/1000);
-      setSessionRemaining(remaining);
-      if(remaining<=0)onLogout();
-    },1000);
-    return()=>clearInterval(interval);
-  },[sessionToken]);
-
+  useEffect(()=>{const interval=setInterval(()=>{const sess=validateSession(sessionToken);if(!sess){onLogout();return;}const remaining=Math.ceil((sess.expires-Date.now())/1000);setSessionRemaining(remaining);if(remaining<=0)onLogout();},1000);return()=>clearInterval(interval);},[sessionToken]);
   const handleActivity=useCallback(()=>refreshSession(sessionToken),[sessionToken]);
   const extendSession=()=>setSessionRemaining(SESSION_TIMEOUT/1000);
 
@@ -539,40 +420,15 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
   const pendingRequests=borrowRequests.filter(r=>r.status==="pending");
   const totalLateFeesPending=stats.reduce((s,m)=>s+m.totalLateFees,0);
 
-  const toggle=async(mid,wn)=>{
-    handleActivity();
-    const cur=allPayments[mid]?.[wn]||false;
-    setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));
-    await SUPA.from("payments").update({paid:!cur}).eq("member_id",mid).eq("week_num",wn);
-  };
+  const toggle=async(mid,wn)=>{handleActivity();const cur=allPayments[mid]?.[wn]||false;setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));await SUPA.from("payments").update({paid:!cur}).eq("member_id",mid).eq("week_num",wn);};
 
   const toggleLate=async(mid,wn,isCurrentlyLate)=>{
     handleActivity();
-    if(isCurrentlyLate){
-      // Mark as paid
-      const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);
-      if(fee){
-        await SUPA.from("late_fees").update({paid:true,paid_on:new Date().toISOString().split("T")[0]}).eq("id",fee.id);
-        setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));
-      }
-    } else {
-      // Mark as late — start from 8pm this week's Friday
-      const week=WEEKS.find(w=>w.n===wn);
-      const lateStart=week?week.lateStart.toISOString():new Date().toISOString();
-      const{data}=await SUPA.from("late_fees").insert({member_id:mid,week_num:wn,late_date:lateStart}).select().single();
-      if(data)setLateFees(prev=>[...prev,data]);
-    }
+    if(isCurrentlyLate){const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);if(fee){await SUPA.from("late_fees").update({paid:true,paid_on:new Date().toISOString().split("T")[0]}).eq("id",fee.id);setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));}}
+    else{const week=WEEKS.find(w=>w.n===wn);const lateStart=week?week.lateStart.toISOString():new Date().toISOString();const{data}=await SUPA.from("late_fees").insert({member_id:mid,week_num:wn,late_date:lateStart}).select().single();if(data)setLateFees(prev=>[...prev,data]);}
   };
 
-  const logBorrow=async(mid)=>{
-    handleActivity();
-    const amt=parseFloat(borrowForm[mid]||0);
-    if(!amt||amt<100){setBorrowMsg(p=>({...p,[mid]:"Min $100."}));return;}
-    const m=stats.find(s=>s.id===mid);
-    if(amt>m.eligibleBorrow){setBorrowMsg(p=>({...p,[mid]:`Max $${m.eligibleBorrow}.`}));return;}
-    const{data}=await SUPA.from("borrows").insert({member_id:mid,amount:amt}).select().single();
-    if(data){setBorrows(prev=>[...prev,data]);setBorrowForm(p=>({...p,[mid]:""}));setBorrowMsg(p=>({...p,[mid]:"Logged."}));setTimeout(()=>setBorrowMsg(p=>({...p,[mid]:""})),3000);}
-  };
+  const logBorrow=async(mid)=>{handleActivity();const amt=parseFloat(borrowForm[mid]||0);if(!amt||amt<100){setBorrowMsg(p=>({...p,[mid]:"Min $100."}));return;}const m=stats.find(s=>s.id===mid);if(amt>m.eligibleBorrow){setBorrowMsg(p=>({...p,[mid]:`Max $${m.eligibleBorrow}.`}));return;}const{data}=await SUPA.from("borrows").insert({member_id:mid,amount:amt}).select().single();if(data){setBorrows(prev=>[...prev,data]);setBorrowForm(p=>({...p,[mid]:""}));setBorrowMsg(p=>({...p,[mid]:"Logged."}));setTimeout(()=>setBorrowMsg(p=>({...p,[mid]:""})),3000);}};
 
   const logExtraCapital=async(mid)=>{
     handleActivity();
@@ -581,27 +437,11 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     const weekNum=parseInt(extraForm[mid]?.week||cw);
     if(!amt||amt<=0){setExtraMsg(p=>({...p,[mid]:"Enter valid amount."}));return;}
     const{data}=await SUPA.from("extra_capital").insert({member_id:mid,week_num:weekNum,amount:amt,note}).select().single();
-    if(data){
-      setExtraCapital(prev=>[...prev,data]);
-      setExtraForm(p=>({...p,[mid]:{}}));
-      setExtraMsg(p=>({...p,[mid]:"Extra capital logged."}));
-      setTimeout(()=>setExtraMsg(p=>({...p,[mid]:""})),3000);
-    }
+    if(data){setExtraCapital(prev=>[...prev,data]);setExtraForm(p=>({...p,[mid]:{}}));setExtraMsg(p=>({...p,[mid]:"Extra capital logged."}));setTimeout(()=>setExtraMsg(p=>({...p,[mid]:""})),3000);}
   };
 
-  const toggleRepaid=async(borrowId,current)=>{
-    handleActivity();
-    await SUPA.from("borrows").update({repaid:!current,repaid_on:!current?new Date().toISOString().split("T")[0]:null}).eq("id",borrowId);
-    setBorrows(prev=>prev.map(b=>b.id===borrowId?{...b,repaid:!current}:b));
-  };
-
-  const reviewRequest=async(reqId,approved,memberId,amount)=>{
-    handleActivity();
-    await SUPA.from("borrow_requests").update({status:approved?"approved":"declined",reviewed_on:new Date().toISOString().split("T")[0]}).eq("id",reqId);
-    if(approved){const{data}=await SUPA.from("borrows").insert({member_id:memberId,amount}).select().single();if(data)setBorrows(prev=>[...prev,data]);}
-    setBorrowRequests(prev=>prev.map(r=>r.id===reqId?{...r,status:approved?"approved":"declined"}:r));
-  };
-
+  const toggleRepaid=async(borrowId,current)=>{handleActivity();await SUPA.from("borrows").update({repaid:!current,repaid_on:!current?new Date().toISOString().split("T")[0]:null}).eq("id",borrowId);setBorrows(prev=>prev.map(b=>b.id===borrowId?{...b,repaid:!current}:b));};
+  const reviewRequest=async(reqId,approved,memberId,amount)=>{handleActivity();await SUPA.from("borrow_requests").update({status:approved?"approved":"declined",reviewed_on:new Date().toISOString().split("T")[0]}).eq("id",reqId);if(approved){const{data}=await SUPA.from("borrows").insert({member_id:memberId,amount}).select().single();if(data)setBorrows(prev=>[...prev,data]);}setBorrowRequests(prev=>prev.map(r=>r.id===reqId?{...r,status:approved?"approved":"declined"}:r));};
   const saveAdminPin=async(newPin)=>{await SUPA.from("admin_settings").update({pin:newPin}).eq("id",1);onAdminPinSaved(newPin);};
   const resetMemberPin=async(id)=>{const defaults=["1111","2222","3333","4444","5555","6666","7777","8888","9999","0000"];const defPin=defaults[id-1];await SUPA.from("members").update({pin:defPin}).eq("id",id);onMemberPinReset(id,defPin);};
 
@@ -617,10 +457,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     <div style={{minHeight:"100vh",background:"#111"}} onClick={handleActivity} onKeyDown={handleActivity}>
       <SessionWarning remaining={sessionRemaining} onExtend={extendSession}/>
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
-        <div>
-          <div style={{fontSize:16,fontWeight:700}}>💰 3200 Pardna — Admin</div>
-          <div style={{fontSize:10,color:"#555",marginTop:2}}>Jun 13 2025 → Jan 16 2026</div>
-        </div>
+        <div><div style={{fontSize:16,fontWeight:700}}>💰 3200 Pardna — Admin</div><div style={{fontSize:10,color:"#555",marginTop:2}}>Jun 13 2025 → Jan 16 2026</div></div>
         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           {pendingRequests.length>0&&<span style={{background:"rgba(168,50,50,.2)",color:"#a83232",border:"1px solid rgba(168,50,50,.3)",borderRadius:20,padding:"4px 10px",fontSize:11}}>⚠️ {pendingRequests.length}</span>}
           <span style={{background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",borderRadius:20,padding:"4px 12px",fontSize:11}}>Week {cw}</span>
@@ -629,16 +466,14 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
       </div>
 
       <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
-        {["overview","payments","capital","borrows","donations","requests","schedule","members","settings"].map(t=>(
+        {["overview","payments","capital","borrows","donations","requests","schedule","members","disclosure","settings"].map(t=>(
           <button key={t} onClick={()=>{setTab(t);handleActivity();}} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap",textTransform:"capitalize",position:"relative"}}>
-            {t}
-            {t==="requests"&&pendingRequests.length>0&&<span style={{background:"#a83232",color:"#fff",borderRadius:"50%",fontSize:9,padding:"1px 5px",marginLeft:4}}>{pendingRequests.length}</span>}
+            {t}{t==="requests"&&pendingRequests.length>0&&<span style={{background:"#a83232",color:"#fff",borderRadius:"50%",fontSize:9,padding:"1px 5px",marginLeft:4}}>{pendingRequests.length}</span>}
           </button>
         ))}
       </div>
 
       <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
-
         {tab==="overview"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
@@ -653,39 +488,18 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
             {pendingRequests.length>0&&(
               <div style={{background:"rgba(168,50,50,.08)",border:"1px solid rgba(168,50,50,.2)",borderRadius:12,padding:"14px 18px",marginBottom:20}}>
                 <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginBottom:10}}>⚠️ Pending Borrow Requests</div>
-                {pendingRequests.map(r=>{
-                  const m=members.find(x=>x.id===r.member_id);
-                  return(
-                    <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:8}}>
-                      <div style={{fontSize:12}}><span style={{fontWeight:600}}>{m?.name}</span> · ${r.amount}{r.reason&&` · "${r.reason}"`}</div>
-                      <div style={{display:"flex",gap:8}}>
-                        <button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button>
-                        <button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {pendingRequests.map(r=>{const m=members.find(x=>x.id===r.member_id);return(<div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:8}}><div style={{fontSize:12}}><span style={{fontWeight:600}}>{m?.name}</span> · ${r.amount}{r.reason&&` · "${r.reason}"`}</div><div style={{display:"flex",gap:8}}><button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button><button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button></div></div>);})}
               </div>
             )}
             <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Members</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10}}>
               {stats.map(m=>(
-                <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");handleActivity();}}
-                  style={{background:"#1c1c1c",border:`1px solid ${m.myLateFees.length>0?"rgba(168,50,50,.3)":"#2a2a2a"}`,borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
+                <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");handleActivity();}} style={{background:"#1c1c1c",border:`1px solid ${m.myLateFees.length>0?"rgba(168,50,50,.3)":"#2a2a2a"}`,borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
                   <Av name={m.name} idx={m.idx}/>
                   <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,flexWrap:"wrap"}}>
-                      <span style={{fontSize:13,fontWeight:600}}>{m.name}</span>
-                      <HBadge hand={m.hand}/>
-                      {m.myLateFees.length>0&&<span style={{fontSize:9,color:"#a83232",background:"rgba(168,50,50,.15)",padding:"1px 6px",borderRadius:10}}>LATE</span>}
-                    </div>
-                    <div style={{background:"#2a2a2a",borderRadius:4,height:4,overflow:"hidden"}}>
-                      <div style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,height:"100%",background:m.arr>0?"#a83232":"#2e7d6e",borderRadius:4}}/>
-                    </div>
-                    <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}>
-                      <span>{m.paid}/{m.due} · Extra: ${m.totalExtra.toLocaleString()}</span>
-                      <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span>
-                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:600}}>{m.name}</span><HBadge hand={m.hand}/>{m.myLateFees.length>0&&<span style={{fontSize:9,color:"#a83232",background:"rgba(168,50,50,.15)",padding:"1px 6px",borderRadius:10}}>LATE</span>}</div>
+                    <div style={{background:"#2a2a2a",borderRadius:4,height:4,overflow:"hidden"}}><div style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,height:"100%",background:m.arr>0?"#a83232":"#2e7d6e",borderRadius:4}}/></div>
+                    <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}><span>{m.paid}/{m.due} · Extra: ${m.totalExtra.toLocaleString()}</span><span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span></div>
                   </div>
                 </div>
               ))}
@@ -695,7 +509,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
 
         {tab==="payments"&&(
           <div>
-            <div style={{fontSize:11,color:"#555",marginBottom:14}}>Click a week tile to toggle paid. Hold shift + click to toggle late.</div>
+            <div style={{fontSize:11,color:"#555",marginBottom:14}}>Tap tile = toggle paid · Tap "late" button = toggle late fee</div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
               <span style={{fontSize:11,color:"#555"}}>Filter:</span>
               <button onClick={()=>setFmem(null)} style={{background:!fmem?"rgba(201,123,46,.12)":"none",border:`1px solid ${!fmem?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:!fmem?"#c97b2e":"#555",fontSize:11,padding:"4px 11px"}}>All</button>
@@ -710,32 +524,22 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                     <div style={{fontSize:11,color:"#555",marginTop:3}}>{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · Extra: ${m.totalExtra.toLocaleString()} · Draw: ${m.finalDraw.toLocaleString()}</div>
                   </div>
                 </div>
-                {m.totalLateFees>0&&<div style={{fontSize:11,color:"#a83232",marginBottom:10}}>⚠️ Late fees: ${m.totalLateFees} outstanding (deducted from draw)</div>}
+                {m.totalLateFees>0&&<div style={{fontSize:11,color:"#a83232",marginBottom:10}}>⚠️ Late fees: ${m.totalLateFees} outstanding</div>}
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {WEEKS.map(w=>{
-                    const paid=allPayments[m.id]?.[w.n]||false;
-                    const due=w.n<=cw,cur=w.n===cw;
+                    const paid=allPayments[m.id]?.[w.n]||false,due=w.n<=cw,cur=w.n===cw;
                     const lf=lateFees.find(f=>f.member_id===m.id&&f.week_num===w.n&&!f.paid);
                     const isLate=!!lf;
                     return(
                       <div key={w.n} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                        <div title={`Week ${w.n} · ${w.date}${isLate?" · LATE":""}`}
-                          onClick={(e)=>{if(due)toggle(m.id,w.n);}}
+                        <div title={`Week ${w.n} · ${w.date}${isLate?" · LATE":""}`} onClick={()=>{if(due)toggle(m.id,w.n);}}
                           style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",
                             border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(168,50,50,.6)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
                             background:isLate?"rgba(168,50,50,.25)":paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
                             color:isLate?"#ff6b6b":paid?"#2e7d6e":due?"#a83232":"#333",cursor:due?"pointer":"default"}}>
-                          {w.n}
-                          {isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#a83232"}}/>}
+                          {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#a83232"}}/>}
                         </div>
-                        {due&&(
-                          <button
-                            onClick={()=>toggleLate(m.id,w.n,isLate)}
-                            title={isLate?"Mark late fee paid":"Mark as late"}
-                            style={{fontSize:8,padding:"1px 4px",borderRadius:4,background:isLate?"rgba(168,50,50,.2)":"rgba(255,255,255,.05)",border:`1px solid ${isLate?"rgba(168,50,50,.4)":"#2a2a2a"}`,color:isLate?"#a83232":"#444"}}>
-                            {isLate?"✓late":"late"}
-                          </button>
-                        )}
+                        {due&&<button onClick={()=>toggleLate(m.id,w.n,isLate)} style={{fontSize:8,padding:"1px 4px",borderRadius:4,background:isLate?"rgba(168,50,50,.2)":"rgba(255,255,255,.05)",border:`1px solid ${isLate?"rgba(168,50,50,.4)":"#2a2a2a"}`,color:isLate?"#a83232":"#444"}}>{isLate?"✓late":"late"}</button>}
                       </div>
                     );
                   })}
@@ -744,7 +548,6 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                   <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
                   <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
                   <span><span style={{color:"#ff6b6b"}}>■</span> Late</span>
-                  <span style={{color:"#555"}}>Tap tile = toggle paid · Tap "late" = toggle late fee</span>
                 </div>
               </div>
             ))}
@@ -766,16 +569,12 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                     <div style={{fontSize:11,color:"#555"}}>Total extra: <span style={{color:"#7B3F8C"}}>${m.totalExtra.toLocaleString()}</span> · Total in: <span style={{color:"#c97b2e"}}>${m.totalContributed.toLocaleString()}</span> · Borrow eligible: <span style={{color:"#2e7d6e"}}>${m.eligibleBorrow.toLocaleString()}</span></div>
                   </div>
                 </div>
-                {/* Log extra capital form */}
                 <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-                  <input type="number" placeholder="Amount" value={extraForm[m.id]?.amount||""} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],amount:e.target.value}}))}
-                    style={{flex:1,minWidth:100,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
-                  <select value={extraForm[m.id]?.week||cw} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],week:e.target.value}}))}
-                    style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 10px",fontSize:12,color:"#e8e0d4"}}>
+                  <input type="number" placeholder="Amount" value={extraForm[m.id]?.amount||""} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],amount:e.target.value}}))} style={{flex:1,minWidth:100,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
+                  <select value={extraForm[m.id]?.week||cw} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],week:e.target.value}}))} style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 10px",fontSize:12,color:"#e8e0d4"}}>
                     {WEEKS.map(w=><option key={w.n} value={w.n}>Wk {w.n} · {w.date}</option>)}
                   </select>
-                  <input type="text" placeholder="Note (optional)" value={extraForm[m.id]?.note||""} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],note:e.target.value}}))}
-                    style={{flex:2,minWidth:120,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
+                  <input type="text" placeholder="Note (optional)" value={extraForm[m.id]?.note||""} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],note:e.target.value}}))} style={{flex:2,minWidth:120,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
                   <button onClick={()=>logExtraCapital(m.id)} style={{background:"rgba(123,63,140,.2)",border:"1px solid rgba(123,63,140,.4)",borderRadius:8,color:"#7B3F8C",fontSize:12,padding:"8px 14px"}}>Log</button>
                 </div>
                 {extraMsg[m.id]&&<div style={{fontSize:11,color:"#7B3F8C",marginBottom:8}}>{extraMsg[m.id]}</div>}
@@ -795,10 +594,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
               <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
                 <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
                   <Av name={m.name} idx={m.idx}/>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{m.name}</div>
-                    <div style={{fontSize:11,color:"#555"}}>Total in: ${m.totalContributed.toLocaleString()} · Eligible: <span style={{color:"#c97b2e"}}>${m.eligibleBorrow.toLocaleString()}</span> · {m.activeBorrow?<span style={{color:"#a83232"}}>Active: ${m.activeBorrow.amount}</span>:<span style={{color:"#2e7d6e"}}>No active borrow</span>}</div>
-                  </div>
+                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{m.name}</div><div style={{fontSize:11,color:"#555"}}>Total in: ${m.totalContributed.toLocaleString()} · Eligible: <span style={{color:"#c97b2e"}}>${m.eligibleBorrow.toLocaleString()}</span> · {m.activeBorrow?<span style={{color:"#a83232"}}>Active: ${m.activeBorrow.amount}</span>:<span style={{color:"#2e7d6e"}}>No active borrow</span>}</div></div>
                 </div>
                 <div style={{display:"flex",gap:8,marginBottom:8}}>
                   <input type="number" placeholder="Amount" value={borrowForm[m.id]||""} onChange={e=>setBorrowForm(p=>({...p,[m.id]:e.target.value}))} style={{flex:1,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
@@ -825,28 +621,12 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
               <div style={{fontSize:13,fontWeight:600}}>🤝 Community Reserve Fund</div>
               <div style={{fontSize:24,fontWeight:700,color:"#2e7d6e"}}>${totDonations.toLocaleString()}</div>
             </div>
-            {stats.map(m=>{
-              const dw=m.hand?WEEKS[m.hand-1]:null;
-              return(
-                <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 18px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <Av name={m.name} idx={m.idx} size={32}/>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600}}>{m.name}</div>
-                      <div style={{fontSize:10,color:"#555",marginTop:2}}>{dw?`Draw: ${dw.drawDate}`:"No hand assigned"}</div>
-                    </div>
-                  </div>
-                  <div style={{textAlign:"right"}}>
-                    {m.donationAmt>0?(
-                      <div>
-                        <div style={{fontSize:16,fontWeight:700,color:"#2e7d6e"}}>+${m.donationAmt}</div>
-                        <div style={{fontSize:10,color:"#555"}}>Receives ${m.finalDraw.toLocaleString()}</div>
-                      </div>
-                    ):<div style={{fontSize:11,color:"#444"}}>No donation pledged</div>}
-                  </div>
-                </div>
-              );
-            })}
+            {stats.map(m=>{const dw=m.hand?WEEKS[m.hand-1]:null;return(
+              <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 18px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}><Av name={m.name} idx={m.idx} size={32}/><div><div style={{fontSize:13,fontWeight:600}}>{m.name}</div><div style={{fontSize:10,color:"#555",marginTop:2}}>{dw?`Draw: ${dw.drawDate}`:"No hand assigned"}</div></div></div>
+                <div style={{textAlign:"right"}}>{m.donationAmt>0?<div><div style={{fontSize:16,fontWeight:700,color:"#2e7d6e"}}>+${m.donationAmt}</div><div style={{fontSize:10,color:"#555"}}>Receives ${m.finalDraw.toLocaleString()}</div></div>:<div style={{fontSize:11,color:"#444"}}>No donation pledged</div>}</div>
+              </div>
+            );})}
           </div>
         )}
 
@@ -854,59 +634,32 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
           <div>
             <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Borrow Requests</div>
             {borrowRequests.length===0&&<div style={{fontSize:12,color:"#444",padding:20,textAlign:"center"}}>No requests yet.</div>}
-            {borrowRequests.sort((a,b)=>a.status==="pending"?-1:1).map(r=>{
-              const m=members.find(x=>x.id===r.member_id);
-              return(
-                <div key={r.id} style={{background:"#1c1c1c",border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.25)":"rgba(168,50,50,.2)"}`,borderRadius:12,padding:"16px 20px",marginBottom:10}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <Av name={m?.name||"?"} idx={r.member_id-1} size={32}/>
-                      <div>
-                        <div style={{fontSize:13,fontWeight:600}}>{m?.name} · <span style={{color:"#c97b2e"}}>${r.amount}</span></div>
-                        <div style={{fontSize:10,color:"#555",marginTop:3}}>{r.requested_on}{r.reason&&` · "${r.reason}"`}</div>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,
-                        background:r.status==="pending"?"rgba(201,123,46,.15)":r.status==="approved"?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",
-                        color:r.status==="pending"?"#c97b2e":r.status==="approved"?"#2e7d6e":"#a83232",
-                        border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>{r.status}</span>
-                      {r.status==="pending"&&(<>
-                        <button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button>
-                        <button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button>
-                      </>)}
-                    </div>
+            {borrowRequests.sort((a,b)=>a.status==="pending"?-1:1).map(r=>{const m=members.find(x=>x.id===r.member_id);return(
+              <div key={r.id} style={{background:"#1c1c1c",border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.25)":"rgba(168,50,50,.2)"}`,borderRadius:12,padding:"16px 20px",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}><Av name={m?.name||"?"} idx={r.member_id-1} size={32}/><div><div style={{fontSize:13,fontWeight:600}}>{m?.name} · <span style={{color:"#c97b2e"}}>${r.amount}</span></div><div style={{fontSize:10,color:"#555",marginTop:3}}>{r.requested_on}{r.reason&&` · "${r.reason}"`}</div></div></div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:r.status==="pending"?"rgba(201,123,46,.15)":r.status==="approved"?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",color:r.status==="pending"?"#c97b2e":r.status==="approved"?"#2e7d6e":"#a83232",border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>{r.status}</span>
+                    {r.status==="pending"&&(<><button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button><button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button></>)}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            );})}
           </div>
         )}
 
         {tab==="schedule"&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:8}}>
             {WEEKS.map(w=>{
-              const rec=potMap[w.n];
-              const past=w.n<cw,cur=w.n===cw;
+              const rec=potMap[w.n];const past=w.n<cw,cur=w.n===cw;
               const midx=rec?members.findIndex(m=>m.id===rec.id):-1;
               const recStat=rec?stats.find(s=>s.id===rec.id):null;
               return(
                 <div key={w.n} style={{background:cur?"rgba(201,123,46,.08)":"#1c1c1c",border:`1px solid ${cur?"rgba(201,123,46,.35)":"#2a2a2a"}`,borderRadius:10,padding:"12px 14px",opacity:past&&!cur?.55:1}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                    <span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>
-                    {cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}
-                    {past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}
-                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>{cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}{past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}</div>
                   <div style={{fontSize:10,color:"#666"}}>💳 {w.date}</div>
                   <div style={{fontSize:10,color:"#c97b2e",marginBottom:8}}>💰 {w.drawDate}</div>
-                  {rec
-                    ?<div>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>${recStat?recStat.finalDraw.toLocaleString():3200}</div></div></div>
-                      {recStat?.donationAmt>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.donationAmt} reserve</div>}
-                      {recStat?.totalLateFees>0&&<div style={{fontSize:9,color:"#a83232"}}>−${recStat.totalLateFees} late fees</div>}
-                    </div>
-                    :<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>
-                  }
+                  {rec?<div><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>${recStat?recStat.finalDraw.toLocaleString():3200}</div></div></div>{recStat?.donationAmt>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.donationAmt} reserve</div>}{recStat?.totalLateFees>0&&<div style={{fontSize:9,color:"#a83232"}}>−${recStat.totalLateFees} late fees</div>}</div>:<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>}
                 </div>
               );
             })}
@@ -919,26 +672,23 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
               <div style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 70px 80px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
                 <span>Member</span><span>Hand</span><span>Deposit</span><span>Draw Date</span><span>Paid</span><span>Extra</span><span>Final Draw</span><span>Status</span>
               </div>
-              {stats.map(m=>{
-                const dw=m.hand?WEEKS[m.hand-1]:null;
-                return(
-                  <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 70px 80px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13}}>{m.name}</span></div>
-                    <HBadge hand={m.hand}/>
-                    <span style={{fontSize:11,color:"#666"}}>{dw?dw.date:"—"}</span>
-                    <span style={{fontSize:11,color:"#c97b2e"}}>{dw?dw.drawDate:"—"}</span>
-                    <span style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></span>
-                    <span style={{fontSize:13,color:"#7B3F8C"}}>${m.totalExtra.toLocaleString()}</span>
-                    <span style={{fontSize:13,color:"#c97b2e"}}>${m.finalDraw.toLocaleString()}</span>
-                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>
-                      {m.arr>0?`${m.arr} behind`:"current"}
-                    </span>
-                  </div>
-                );
-              })}
+              {stats.map(m=>{const dw=m.hand?WEEKS[m.hand-1]:null;return(
+                <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 70px 80px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13}}>{m.name}</span></div>
+                  <HBadge hand={m.hand}/>
+                  <span style={{fontSize:11,color:"#666"}}>{dw?dw.date:"—"}</span>
+                  <span style={{fontSize:11,color:"#c97b2e"}}>{dw?dw.drawDate:"—"}</span>
+                  <span style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></span>
+                  <span style={{fontSize:13,color:"#7B3F8C"}}>${m.totalExtra.toLocaleString()}</span>
+                  <span style={{fontSize:13,color:"#c97b2e"}}>${m.finalDraw.toLocaleString()}</span>
+                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>{m.arr>0?`${m.arr} behind`:"current"}</span>
+                </div>
+              );})}
             </div>
           </div>
         )}
+
+        {tab==="disclosure"&&<Disclosure/>}
 
         {tab==="settings"&&(
           <div style={{maxWidth:500}}>
@@ -1010,10 +760,7 @@ function App(){
   const handleLogout=()=>{destroySession();setSessionToken(null);setRole(null);setCurrentMember(null);};
   const handleMemberPin=(id,newPin)=>{setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:newPin}:m));if(currentMember?.id===id)setCurrentMember(prev=>({...prev,pin:newPin}));};
   const handleMemberPinReset=(id,defPin)=>setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:defPin}:m));
-  const handleDonationUpdate=async(memberId,amount,existingId)=>{
-    if(existingId){await SUPA.from("donations").update({amount}).eq("id",existingId);setDonations(prev=>prev.map(d=>d.id===existingId?{...d,amount}:d));}
-    else if(amount>0){const{data}=await SUPA.from("donations").insert({member_id:memberId,amount}).select().single();if(data)setDonations(prev=>[...prev,data]);}
-  };
+  const handleDonationUpdate=async(memberId,amount,existingId)=>{if(existingId){await SUPA.from("donations").update({amount}).eq("id",existingId);setDonations(prev=>prev.map(d=>d.id===existingId?{...d,amount}:d));}else if(amount>0){const{data}=await SUPA.from("donations").insert({member_id:memberId,amount}).select().single();if(data)setDonations(prev=>[...prev,data]);}};
   const handleBorrowRequest=async(memberId,amount,reason)=>{const{data}=await SUPA.from("borrow_requests").insert({member_id:memberId,amount,reason}).select().single();if(data)setBorrowRequests(prev=>[...prev,data]);};
 
   if(loading)return<Loading/>;
