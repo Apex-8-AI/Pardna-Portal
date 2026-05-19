@@ -28,7 +28,7 @@ const SUPA=supabase.createClient(
 const SESSION_TIMEOUT=30*60*1000;
 const MAX_ATTEMPTS=5;
 const LOCKOUT_TIME=5*60*1000;
-const LATE_FEE_PER_DAY=20;
+const RESERVE_CONTRIBUTION=25;
 const LATE_FEE_START_HOUR=20;
 
 const secStore={attempts:{},lockouts:{},session:null};
@@ -42,7 +42,6 @@ function createSession(role,member){const token=genToken();secStore.session={rol
 function validateSession(token){if(!secStore.session||secStore.session.token!==token||Date.now()>secStore.session.expires)return null;return secStore.session;}
 function refreshSession(token){if(secStore.session&&secStore.session.token===token)secStore.session.expires=Date.now()+SESSION_TIMEOUT;}
 function destroySession(){secStore.session=null;}
-function calcLateFee(lateDateStr){if(!lateDateStr)return 0;const lateDate=new Date(lateDateStr);const now=new Date();const diffMs=now-lateDate;if(diffMs<=0)return 0;const days=Math.floor(diffMs/(1000*60*60*24));return days*LATE_FEE_PER_DAY;}
 
 const AVCOLS=["#C97B2E","#2E7D6E","#7B3F8C","#2E5F9B","#A83232","#5B8A2E","#8C5B2E","#2E7B8C","#7B6A2E","#3A7B8C"];
 const START=new Date("2025-06-13");
@@ -59,18 +58,30 @@ function genWeeks(){
 const WEEKS=genWeeks();
 function getCurWeek(){const t=new Date();let c=0;WEEKS.forEach(w=>{if(t>=w.full)c=w.n;});return Math.max(1,c);}
 
+// Calculate missed weeks debt
+// Each missed week = $100 owed + $25 reserve contribution
+// Formula: (missed weeks × $125) + $100 current week
+function calcMissedDebt(lateWeeks){
+  const missedCount=lateWeeks.filter(f=>!f.paid).length;
+  if(missedCount===0)return{totalOwed:100,missedCount:0,reserveContributions:0,nextWeekAmount:100};
+  const missedDebt=missedCount*100;
+  const reserveContributions=missedCount*RESERVE_CONTRIBUTION;
+  const totalOwed=missedDebt+reserveContributions+100;
+  return{totalOwed,missedCount,reserveContributions,nextWeekAmount:totalOwed};
+}
+
 function Av({name,idx,size=36}){const c=AVCOLS[idx%AVCOLS.length];return<div style={{width:size,height:size,borderRadius:"50%",background:c+"28",border:`1.5px solid ${c}55`,color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.4,fontWeight:700,flexShrink:0}}>{name[0]}</div>;}
 function HBadge({hand}){return hand?<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",fontWeight:600}}>Hand #{hand}</span>:<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(255,255,255,.05)",color:"#555",border:"1px solid #2a2a2a"}}>Unassigned</span>;}
 function Loading(){return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>💰</div><div style={{fontSize:13,color:"#555"}}>Loading Pardna Portal...</div></div></div>;}
 function SessionWarning({remaining,onExtend}){if(remaining>60)return null;return<div style={{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:"#1c1c1c",border:"1px solid rgba(201,123,46,.4)",borderRadius:12,padding:"12px 20px",zIndex:100,display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,.5)"}}><span style={{fontSize:12,color:"#c97b2e"}}>⏱ Session expires in {remaining}s</span><button onClick={onExtend} style={{background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,color:"#c97b2e",fontSize:11,padding:"4px 12px"}}>Stay Logged In</button></div>;}
 
-// ── DISCLOSURE ─────────────────────────────────────────────────────────
 function Disclosure(){
   const sections=[
     {title:"What this is",body:"This is a private rotating savings group between trusted members. It is not a bank, financial institution, or investment product. No interest is earned on contributions."},
-    {title:"Your commitment",body:"By joining you agree to contribute $100 every week for the full cycle without exception. Missing payments affects every member in the group."},
-    {title:"Payments",body:"All contributions are voluntary and made in good faith between members. A $20 per day late fee applies to any payment received after 8pm Friday. Late fees are deducted from your draw."},
-    {title:"Draws",body:"Your draw amount is based on your total contributions plus any extra capital added. Members who grow their contributions naturally unlock a larger payout when their draw arrives. Donations and late fees are deducted from your final draw amount."},
+    {title:"Your commitment",body:"By joining you agree to contribute $100 every week for the full cycle without exception. Consistency is the foundation that keeps the group strong for everyone."},
+    {title:"Payments",body:"All contributions are made in good faith between members. Weekly deposits are due by 8pm every Friday. Staying consistent protects your draw and builds your standing in the group."},
+    {title:"Missed Payments",body:"Life happens. If a payment is missed your following week's contribution will be adjusted to include the missed week plus a $25 reserve contribution. That $25 is held safely in your personal reserve and returned to you in full at the end of the cycle. The more you contribute the more comes back to you."},
+    {title:"Draws",body:"Your draw amount is based on your total contributions plus any extra capital added. Members who grow their contributions naturally unlock a larger payout when their draw arrives. Your reserve contributions are refunded at end of cycle and added to your final draw."},
     {title:"Extra Capital",body:"Members have the freedom to add extra capital any week entirely on their own terms. Think of it as quietly building your own payout — every dollar added works in your favor and comes back to you at draw time. Members receive their full Pardna draw on top of any extra capital contributed, meaning your draw and your extra capital are paid out together. For members throwing multiple hands, extra capital is divided evenly across each hand — growing every draw simultaneously. There is no cap, no pressure, and no fixed schedule. Your extra capital is yours."},
     {title:"Borrowing",body:"Members with a strong payment history are eligible to borrow up to 50% of their total contributions. Members who build their contributions over time naturally expand their borrowing access — giving them a financial cushion when life calls for it. Approval is based on payment history and is at the banker's discretion."},
     {title:"No guarantees",body:"The banker is a fellow member coordinating the group in good faith. This is not a legally registered financial service. Members join voluntarily and assume full responsibility for their participation."},
@@ -178,11 +189,16 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
   const baseDraw=numHands*3200;
   const extraPerHand=numHands>0?totalExtra/numHands:0;
   const drawWeek=member.hand?WEEKS[member.hand-1]:null;
-  const myLateFees=lateFees.filter(f=>f.member_id===member.id&&!f.paid);
-  const totalLateFees=myLateFees.reduce((s,f)=>s+calcLateFee(f.late_date),0);
+
+  // Late payment calculations
+  const myLateWeeks=lateFees.filter(f=>f.member_id===member.id&&!f.paid);
+  const debtInfo=calcMissedDebt(myLateWeeks);
+  const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
+
   const myDonation=donations.find(d=>d.member_id===member.id);
   const donationAmt=myDonation?parseFloat(myDonation.amount):0;
-  const finalDraw=baseDraw+totalExtra-donationAmt-totalLateFees;
+  const finalDraw=baseDraw+totalExtra-donationAmt;
+
   const myBorrows=borrows.filter(b=>b.member_id===member.id);
   const activeBorrow=myBorrows.find(b=>!b.repaid);
   const myRequests=borrowRequests.filter(r=>r.member_id===member.id);
@@ -220,6 +236,7 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
         ))}
       </div>
       <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
+
         {subTab==="my"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
@@ -227,13 +244,42 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
                 <div key={l} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{l}</div><div style={{fontSize:15,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div></div>
               ))}
             </div>
-            {myLateFees.length>0&&(
-              <div style={{background:"rgba(168,50,50,.1)",border:"1px solid rgba(168,50,50,.25)",borderRadius:12,padding:"14px 18px",marginBottom:14}}>
-                <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginBottom:8}}>⚠️ Late Fees Outstanding</div>
-                {myLateFees.map(f=><div key={f.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:4}}><span>Week {f.week_num}</span><span style={{color:"#a83232"}}>−${calcLateFee(f.late_date)} ({Math.floor((Date.now()-new Date(f.late_date))/(1000*60*60*24))} days late)</span></div>)}
-                <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginTop:8,borderTop:"1px solid rgba(168,50,50,.2)",paddingTop:8}}>Total: −${totalLateFees}</div>
+
+            {/* Missed payment alert */}
+            {debtInfo.missedCount>0&&(
+              <div style={{background:"rgba(201,123,46,.08)",border:"1px solid rgba(201,123,46,.25)",borderRadius:12,padding:"16px 18px",marginBottom:14}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#c97b2e",marginBottom:10}}>📋 Next Week Payment Breakdown</div>
+                <div style={{fontSize:11,color:"#888",lineHeight:2}}>
+                  {myLateWeeks.map(f=>(
+                    <div key={f.id} style={{display:"flex",justifyContent:"space-between"}}>
+                      <span>Week {f.week_num} missed payment</span><span style={{color:"#e8e0d4"}}>$100</span>
+                    </div>
+                  ))}
+                  {myLateWeeks.map(f=>(
+                    <div key={`r${f.id}`} style={{display:"flex",justifyContent:"space-between"}}>
+                      <span>Week {f.week_num} reserve contribution</span><span style={{color:"#2e7d6e"}}>$25 <span style={{fontSize:9,color:"#555"}}>(refunded end of cycle)</span></span>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",justifyContent:"space-between"}}><span>Current week</span><span style={{color:"#e8e0d4"}}>$100</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid rgba(201,123,46,.2)",paddingTop:8,marginTop:4}}>
+                    <span style={{fontWeight:600,color:"#c97b2e"}}>Next week total</span>
+                    <span style={{fontWeight:600,color:"#c97b2e"}}>${debtInfo.totalOwed}</span>
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"#555",marginTop:8}}>Reserve contributions are refunded in full at end of cycle.</div>
               </div>
             )}
+
+            {reserveContributions>0&&(
+              <div style={{background:"rgba(46,125,110,.08)",border:"1px solid rgba(46,125,110,.2)",borderRadius:12,padding:"12px 18px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:"#2e7d6e"}}>🏦 Reserve Balance</div>
+                  <div style={{fontSize:10,color:"#555",marginTop:3}}>Returned to you at end of cycle</div>
+                </div>
+                <div style={{fontSize:20,fontWeight:700,color:"#2e7d6e"}}>${reserveContributions.toLocaleString()}</div>
+              </div>
+            )}
+
             <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
               <div style={{fontSize:11,color:"#555",marginBottom:14}}>Weekly Contributions</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
@@ -241,36 +287,37 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
                   const p=payments[w.n],d=w.n<=cw,cur=w.n===cw;
                   const lf=lateFees.find(f=>f.member_id===member.id&&f.week_num===w.n&&!f.paid);
                   const isLate=!!lf;
-                  return<div key={w.n} title={`Week ${w.n} · ${w.date}${isLate?" · LATE":""}`}
+                  return<div key={w.n} title={`Week ${w.n} · ${w.date}${isLate?" · MISSED":""}`}
                     style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",
-                      border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(168,50,50,.6)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
-                      background:isLate?"rgba(168,50,50,.25)":p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
-                      color:isLate?"#ff6b6b":p?"#2e7d6e":d?"#a83232":"#333"}}>
-                    {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#a83232"}}/>}
+                      border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(201,123,46,.5)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
+                      background:isLate?"rgba(201,123,46,.15)":p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
+                      color:isLate?"#c97b2e":p?"#2e7d6e":d?"#a83232":"#333"}}>
+                    {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#c97b2e"}}/>}
                   </div>;
                 })}
               </div>
               <div style={{display:"flex",gap:14,marginTop:12,fontSize:10,color:"#555",flexWrap:"wrap"}}>
                 <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
                 <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
-                <span><span style={{color:"#ff6b6b"}}>■</span> Late</span>
+                <span><span style={{color:"#c97b2e"}}>■</span> Missed</span>
                 <span><span style={{color:"#333"}}>■</span> Upcoming</span>
               </div>
             </div>
           </div>
         )}
+
         {subTab==="draw"&&(
           <div>
             {drawWeek?(
               <div style={{background:"#1c1c1c",border:"1px solid rgba(201,123,46,.3)",borderRadius:16,padding:28,textAlign:"center"}}>
                 <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".6px",marginBottom:16}}>Your Draw Info</div>
                 <div style={{fontSize:48,marginBottom:16}}>💰</div>
-                <div style={{fontSize:32,fontWeight:700,color:"#c97b2e",marginBottom:8}}>${finalDraw.toLocaleString()}</div>
+                <div style={{fontSize:32,fontWeight:700,color:"#c97b2e",marginBottom:8}}>${(finalDraw+reserveContributions).toLocaleString()}</div>
                 <div style={{fontSize:11,color:"#555",marginBottom:20,lineHeight:1.8}}>
                   Base: ${baseDraw.toLocaleString()} ({numHands} hand{numHands>1?"s":""})<br/>
                   {totalExtra>0&&<>Extra Capital: +${totalExtra.toLocaleString()} (${extraPerHand.toLocaleString()} per hand)<br/></>}
+                  {reserveContributions>0&&<span style={{color:"#2e7d6e"}}>Reserve Refund: +${reserveContributions}<br/></span>}
                   {donationAmt>0&&<>Donation: −${donationAmt}<br/></>}
-                  {totalLateFees>0&&<span style={{color:"#a83232"}}>Late Fees: −${totalLateFees}<br/></span>}
                 </div>
                 <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
                   <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:12,padding:"16px 24px",minWidth:130}}>
@@ -293,29 +340,37 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             )}
           </div>
         )}
+
         {subTab==="capital"&&(
           <div>
             <div style={{background:"#1c1c1c",border:"1px solid rgba(123,63,140,.3)",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
               <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Extra Capital Summary</div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-                {[["Total Extra",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Total Contributed",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Borrow Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"]].map(([l,v,c])=>(
-                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:100}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div></div>
+                {[["Total Extra",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Reserve",`$${reserveContributions.toLocaleString()}`,"#2e7d6e"],["Total Contributed",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Borrow Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"]].map(([l,v,c])=>(
+                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:16,fontWeight:700,color:c}}>{v}</div></div>
                 ))}
               </div>
-              <div style={{fontSize:11,color:"#555"}}>Extra capital is logged by admin on your behalf. Contact admin to add extra capital to your account.</div>
+              <div style={{fontSize:11,color:"#555"}}>Extra capital is logged by admin. Reserve contributions are added automatically when a payment is missed and refunded at end of cycle.</div>
             </div>
             {myExtra.length>0?(
               <div>
-                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Extra Capital History</div>
+                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Capital History</div>
                 {myExtra.map(e=>(
-                  <div key={e.id} style={{background:"#1c1c1c",border:"1px solid rgba(123,63,140,.2)",borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div><div style={{fontSize:13,fontWeight:600,color:"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div><div style={{fontSize:10,color:"#555",marginTop:3}}>Week {e.week_num} · {e.logged_on}{e.note&&` · ${e.note}`}</div></div>
+                  <div key={e.id} style={{background:"#1c1c1c",border:`1px solid ${e.note==="reserve_contribution"?"rgba(46,125,110,.2)":"rgba(123,63,140,.2)"}`,borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600,color:e.note==="reserve_contribution"?"#2e7d6e":"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div>
+                      <div style={{fontSize:10,color:"#555",marginTop:3}}>
+                        {e.note==="reserve_contribution"?"🏦 Reserve contribution (refunded end of cycle)":`Week ${e.week_num} · ${e.logged_on}${e.note&&e.note!=="reserve_contribution"?` · ${e.note}`:""}`}
+                      </div>
+                    </div>
+                    {e.note==="reserve_contribution"&&<span style={{fontSize:9,color:"#2e7d6e",background:"rgba(46,125,110,.1)",padding:"2px 6px",borderRadius:8}}>refundable</span>}
                   </div>
                 ))}
               </div>
             ):<div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:24,textAlign:"center"}}><div style={{fontSize:12,color:"#444"}}>No extra capital contributions yet.</div></div>}
           </div>
         )}
+
         {subTab==="borrow"&&(
           <div>
             <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
@@ -352,6 +407,7 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             )}
           </div>
         )}
+
         {subTab==="donate"&&(
           <div>
             <div style={{background:"#1c1c1c",border:"1px solid rgba(46,125,110,.25)",borderRadius:16,padding:24,marginBottom:14,textAlign:"center"}}>
@@ -372,6 +428,7 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             </div>
           </div>
         )}
+
         {subTab==="disclosure"&&<Disclosure/>}
         {subTab==="pin"&&<ChangePinForm currentPin={member.pin} onSave={saveMemberPin} onCancel={()=>setSubTab("my")}/>}
       </div>
@@ -399,33 +456,49 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     const numHands=m.hands||1;
     const myExtra=extraCapital.filter(e=>e.member_id===m.id);
     const totalExtra=myExtra.reduce((s,e)=>s+parseFloat(e.amount||0),0);
+    const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
     const totalContributed=paid*100+totalExtra;
     const myBorrows=borrows.filter(b=>b.member_id===m.id);
     const activeBorrow=myBorrows.find(b=>!b.repaid);
     const myDonation=donations.find(d=>d.member_id===m.id);
     const donationAmt=myDonation?parseFloat(myDonation.amount):0;
-    const myLateFees=lateFees.filter(f=>f.member_id===m.id&&!f.paid);
-    const totalLateFees=myLateFees.reduce((s,f)=>s+calcLateFee(f.late_date),0);
+    const myLateWeeks=lateFees.filter(f=>f.member_id===m.id&&!f.paid);
+    const debtInfo=calcMissedDebt(myLateWeeks);
     const baseDraw=numHands*3200;
-    const finalDraw=baseDraw+totalExtra-donationAmt-totalLateFees;
-    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100,numHands,totalExtra,totalContributed,eligibleBorrow:Math.floor(totalContributed*0.5),activeBorrow,donationAmt,myBorrows,myExtra,myLateFees,totalLateFees,finalDraw,baseDraw};
+    const finalDraw=baseDraw+totalExtra-donationAmt;
+    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100,numHands,totalExtra,reserveContributions,totalContributed,eligibleBorrow:Math.floor(totalContributed*0.5),activeBorrow,donationAmt,myBorrows,myExtra,myLateWeeks,debtInfo,finalDraw,baseDraw};
   });
 
   const totCol=stats.reduce((s,m)=>s+m.amt,0);
   const totArr=stats.reduce((s,m)=>s+m.arr,0);
   const health=Math.round((stats.reduce((s,m)=>s+m.paid,0)/(members.length*cw))*100);
   const totDonations=donations.reduce((s,d)=>s+parseFloat(d.amount||0),0);
-  const totExtra=extraCapital.reduce((s,e)=>s+parseFloat(e.amount||0),0);
+  const totExtra=extraCapital.filter(e=>e.note!=="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
+  const totReserve=extraCapital.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
   const potMap={};members.forEach(m=>{if(m.hand)potMap[m.hand]=m;});
   const pendingRequests=borrowRequests.filter(r=>r.status==="pending");
-  const totalLateFeesPending=stats.reduce((s,m)=>s+m.totalLateFees,0);
 
   const toggle=async(mid,wn)=>{handleActivity();const cur=allPayments[mid]?.[wn]||false;setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));await SUPA.from("payments").update({paid:!cur}).eq("member_id",mid).eq("week_num",wn);};
 
   const toggleLate=async(mid,wn,isCurrentlyLate)=>{
     handleActivity();
-    if(isCurrentlyLate){const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);if(fee){await SUPA.from("late_fees").update({paid:true,paid_on:new Date().toISOString().split("T")[0]}).eq("id",fee.id);setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));}}
-    else{const week=WEEKS.find(w=>w.n===wn);const lateStart=week?week.lateStart.toISOString():new Date().toISOString();const{data}=await SUPA.from("late_fees").insert({member_id:mid,week_num:wn,late_date:lateStart}).select().single();if(data)setLateFees(prev=>[...prev,data]);}
+    if(isCurrentlyLate){
+      // Remove late status and remove the $25 reserve contribution
+      const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);
+      if(fee){
+        await SUPA.from("late_fees").update({paid:true,paid_on:new Date().toISOString().split("T")[0]}).eq("id",fee.id);
+        setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));
+      }
+    } else {
+      // Mark as late and auto-add $25 to reserve
+      const week=WEEKS.find(w=>w.n===wn);
+      const lateStart=week?week.lateStart.toISOString():new Date().toISOString();
+      const{data:lateData}=await SUPA.from("late_fees").insert({member_id:mid,week_num:wn,late_date:lateStart}).select().single();
+      if(lateData)setLateFees(prev=>[...prev,lateData]);
+      // Auto log $25 reserve contribution to extra_capital
+      const{data:extraData}=await SUPA.from("extra_capital").insert({member_id:mid,week_num:wn,amount:RESERVE_CONTRIBUTION,note:"reserve_contribution"}).select().single();
+      if(extraData)setExtraCapital(prev=>[...prev,extraData]);
+    }
   };
 
   const logBorrow=async(mid)=>{handleActivity();const amt=parseFloat(borrowForm[mid]||0);if(!amt||amt<100){setBorrowMsg(p=>({...p,[mid]:"Min $100."}));return;}const m=stats.find(s=>s.id===mid);if(amt>m.eligibleBorrow){setBorrowMsg(p=>({...p,[mid]:`Max $${m.eligibleBorrow}.`}));return;}const{data}=await SUPA.from("borrows").insert({member_id:mid,amount:amt}).select().single();if(data){setBorrows(prev=>[...prev,data]);setBorrowForm(p=>({...p,[mid]:""}));setBorrowMsg(p=>({...p,[mid]:"Logged."}));setTimeout(()=>setBorrowMsg(p=>({...p,[mid]:""})),3000);}};
@@ -474,16 +547,17 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
       </div>
 
       <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
+
         {tab==="overview"&&(
           <div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
               {card("Pot Size","$3,200",null,"#c97b2e")}
               {card("Collected",`$${totCol.toLocaleString()}`,`Week ${cw} of ${NWEEKS}`)}
-              {card("Extra Capital",`$${totExtra.toLocaleString()}`,"total added","#7B3F8C")}
+              {card("Extra Capital",`$${totExtra.toLocaleString()}`,"voluntary","#7B3F8C")}
+              {card("Reserve Pool",`$${totReserve.toLocaleString()}`,"held for refund","#2e7d6e")}
               {card("Health",`${health}%`,null,health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232")}
               {card("Arrears",totArr,"payments behind",totArr>0?"#a83232":"#2e7d6e")}
-              {card("Late Fees",`$${totalLateFeesPending.toLocaleString()}`,"outstanding","#a83232")}
-              {card("Reserve",`$${totDonations.toLocaleString()}`,"community fund","#2e7d6e")}
+              {card("Donations",`$${totDonations.toLocaleString()}`,"community fund","#2e7d6e")}
             </div>
             {pendingRequests.length>0&&(
               <div style={{background:"rgba(168,50,50,.08)",border:"1px solid rgba(168,50,50,.2)",borderRadius:12,padding:"14px 18px",marginBottom:20}}>
@@ -494,12 +568,15 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
             <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Members</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10}}>
               {stats.map(m=>(
-                <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");handleActivity();}} style={{background:"#1c1c1c",border:`1px solid ${m.myLateFees.length>0?"rgba(168,50,50,.3)":"#2a2a2a"}`,borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
+                <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");handleActivity();}} style={{background:"#1c1c1c",border:`1px solid ${m.myLateWeeks.length>0?"rgba(201,123,46,.3)":"#2a2a2a"}`,borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
                   <Av name={m.name} idx={m.idx}/>
                   <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:600}}>{m.name}</span><HBadge hand={m.hand}/>{m.myLateFees.length>0&&<span style={{fontSize:9,color:"#a83232",background:"rgba(168,50,50,.15)",padding:"1px 6px",borderRadius:10}}>LATE</span>}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:600}}>{m.name}</span><HBadge hand={m.hand}/>{m.myLateWeeks.length>0&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>MISSED {m.myLateWeeks.length}</span>}</div>
                     <div style={{background:"#2a2a2a",borderRadius:4,height:4,overflow:"hidden"}}><div style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,height:"100%",background:m.arr>0?"#a83232":"#2e7d6e",borderRadius:4}}/></div>
-                    <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}><span>{m.paid}/{m.due} · Extra: ${m.totalExtra.toLocaleString()}</span><span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span></div>
+                    <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}>
+                      <span>{m.paid}/{m.due} · {m.myLateWeeks.length>0?<span style={{color:"#c97b2e"}}>Next: ${m.debtInfo.totalOwed}</span>:<span>Next: $100</span>}</span>
+                      <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -509,7 +586,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
 
         {tab==="payments"&&(
           <div>
-            <div style={{fontSize:11,color:"#555",marginBottom:14}}>Tap tile = toggle paid · Tap "late" button = toggle late fee</div>
+            <div style={{fontSize:11,color:"#555",marginBottom:14}}>Tap tile = toggle paid · Tap "missed" = mark payment missed (auto-adds $25 reserve)</div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
               <span style={{fontSize:11,color:"#555"}}>Filter:</span>
               <button onClick={()=>setFmem(null)} style={{background:!fmem?"rgba(201,123,46,.12)":"none",border:`1px solid ${!fmem?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:!fmem?"#c97b2e":"#555",fontSize:11,padding:"4px 11px"}}>All</button>
@@ -524,7 +601,13 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                     <div style={{fontSize:11,color:"#555",marginTop:3}}>{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · Extra: ${m.totalExtra.toLocaleString()} · Draw: ${m.finalDraw.toLocaleString()}</div>
                   </div>
                 </div>
-                {m.totalLateFees>0&&<div style={{fontSize:11,color:"#a83232",marginBottom:10}}>⚠️ Late fees: ${m.totalLateFees} outstanding</div>}
+                {m.myLateWeeks.length>0&&(
+                  <div style={{background:"rgba(201,123,46,.08)",border:"1px solid rgba(201,123,46,.2)",borderRadius:8,padding:"10px 14px",marginBottom:10,fontSize:11}}>
+                    <span style={{color:"#c97b2e",fontWeight:600}}>Next week owes: ${m.debtInfo.totalOwed}</span>
+                    <span style={{color:"#555",marginLeft:8}}>({m.myLateWeeks.length} missed × $125 + $100 current)</span>
+                    <span style={{color:"#2e7d6e",marginLeft:8}}>Reserve: +${m.debtInfo.reserveContributions} (refunded end of cycle)</span>
+                  </div>
+                )}
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {WEEKS.map(w=>{
                     const paid=allPayments[m.id]?.[w.n]||false,due=w.n<=cw,cur=w.n===cw;
@@ -532,14 +615,14 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                     const isLate=!!lf;
                     return(
                       <div key={w.n} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                        <div title={`Week ${w.n} · ${w.date}${isLate?" · LATE":""}`} onClick={()=>{if(due)toggle(m.id,w.n);}}
+                        <div title={`Week ${w.n} · ${w.date}${isLate?" · MISSED":""}`} onClick={()=>{if(due)toggle(m.id,w.n);}}
                           style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",
-                            border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(168,50,50,.6)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
-                            background:isLate?"rgba(168,50,50,.25)":paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
-                            color:isLate?"#ff6b6b":paid?"#2e7d6e":due?"#a83232":"#333",cursor:due?"pointer":"default"}}>
-                          {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#a83232"}}/>}
+                            border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(201,123,46,.5)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
+                            background:isLate?"rgba(201,123,46,.15)":paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
+                            color:isLate?"#c97b2e":paid?"#2e7d6e":due?"#a83232":"#333",cursor:due?"pointer":"default"}}>
+                          {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#c97b2e"}}/>}
                         </div>
-                        {due&&<button onClick={()=>toggleLate(m.id,w.n,isLate)} style={{fontSize:8,padding:"1px 4px",borderRadius:4,background:isLate?"rgba(168,50,50,.2)":"rgba(255,255,255,.05)",border:`1px solid ${isLate?"rgba(168,50,50,.4)":"#2a2a2a"}`,color:isLate?"#a83232":"#444"}}>{isLate?"✓late":"late"}</button>}
+                        {due&&<button onClick={()=>toggleLate(m.id,w.n,isLate)} style={{fontSize:8,padding:"1px 4px",borderRadius:4,background:isLate?"rgba(201,123,46,.2)":"rgba(255,255,255,.05)",border:`1px solid ${isLate?"rgba(201,123,46,.4)":"#2a2a2a"}`,color:isLate?"#c97b2e":"#444"}}>{isLate?"✓miss":"miss"}</button>}
                       </div>
                     );
                   })}
@@ -547,7 +630,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                 <div style={{display:"flex",gap:14,marginTop:12,fontSize:10,color:"#555",flexWrap:"wrap"}}>
                   <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
                   <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
-                  <span><span style={{color:"#ff6b6b"}}>■</span> Late</span>
+                  <span><span style={{color:"#c97b2e"}}>■</span> Missed</span>
                 </div>
               </div>
             ))}
@@ -556,9 +639,18 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
 
         {tab==="capital"&&(
           <div>
-            <div style={{background:"rgba(123,63,140,.08)",border:"1px solid rgba(123,63,140,.2)",borderRadius:12,padding:"12px 18px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontSize:13,fontWeight:600}}>💜 Total Extra Capital</div>
-              <div style={{fontSize:24,fontWeight:700,color:"#7B3F8C"}}>${totExtra.toLocaleString()}</div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
+              <div style={{background:"rgba(123,63,140,.08)",border:"1px solid rgba(123,63,140,.2)",borderRadius:12,padding:"12px 18px",flex:1,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontSize:13,fontWeight:600}}>💜 Voluntary Extra Capital</div>
+                <div style={{fontSize:24,fontWeight:700,color:"#7B3F8C"}}>${totExtra.toLocaleString()}</div>
+              </div>
+              <div style={{background:"rgba(46,125,110,.08)",border:"1px solid rgba(46,125,110,.2)",borderRadius:12,padding:"12px 18px",flex:1,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600}}>🏦 Reserve Pool</div>
+                  <div style={{fontSize:10,color:"#555",marginTop:2}}>Refunded at end of cycle</div>
+                </div>
+                <div style={{fontSize:24,fontWeight:700,color:"#2e7d6e"}}>${totReserve.toLocaleString()}</div>
+              </div>
             </div>
             {stats.map(m=>(
               <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
@@ -566,7 +658,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                   <Av name={m.name} idx={m.idx}/>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{m.name}</div>
-                    <div style={{fontSize:11,color:"#555"}}>Total extra: <span style={{color:"#7B3F8C"}}>${m.totalExtra.toLocaleString()}</span> · Total in: <span style={{color:"#c97b2e"}}>${m.totalContributed.toLocaleString()}</span> · Borrow eligible: <span style={{color:"#2e7d6e"}}>${m.eligibleBorrow.toLocaleString()}</span></div>
+                    <div style={{fontSize:11,color:"#555"}}>Voluntary: <span style={{color:"#7B3F8C"}}>${(m.totalExtra-m.reserveContributions).toLocaleString()}</span> · Reserve: <span style={{color:"#2e7d6e"}}>${m.reserveContributions.toLocaleString()}</span> · Total in: <span style={{color:"#c97b2e"}}>${m.totalContributed.toLocaleString()}</span> · Borrow eligible: <span style={{color:"#2e7d6e"}}>${m.eligibleBorrow.toLocaleString()}</span></div>
                   </div>
                 </div>
                 <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
@@ -580,7 +672,11 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                 {extraMsg[m.id]&&<div style={{fontSize:11,color:"#7B3F8C",marginBottom:8}}>{extraMsg[m.id]}</div>}
                 {m.myExtra.map(e=>(
                   <div key={e.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#161616",borderRadius:8,padding:"10px 14px",marginBottom:6}}>
-                    <div><div style={{fontSize:13,fontWeight:600,color:"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div><div style={{fontSize:10,color:"#555"}}>Wk {e.week_num} · {e.logged_on}{e.note&&` · ${e.note}`}</div></div>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600,color:e.note==="reserve_contribution"?"#2e7d6e":"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div>
+                      <div style={{fontSize:10,color:"#555"}}>{e.note==="reserve_contribution"?`🏦 Reserve · Wk ${e.week_num}`:`Wk ${e.week_num} · ${e.logged_on}${e.note?` · ${e.note}`:""}`}</div>
+                    </div>
+                    {e.note==="reserve_contribution"&&<span style={{fontSize:9,color:"#2e7d6e",background:"rgba(46,125,110,.1)",padding:"2px 6px",borderRadius:8}}>refundable</span>}
                   </div>
                 ))}
               </div>
@@ -659,7 +755,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>{cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}{past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}</div>
                   <div style={{fontSize:10,color:"#666"}}>💳 {w.date}</div>
                   <div style={{fontSize:10,color:"#c97b2e",marginBottom:8}}>💰 {w.drawDate}</div>
-                  {rec?<div><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>${recStat?recStat.finalDraw.toLocaleString():3200}</div></div></div>{recStat?.donationAmt>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.donationAmt} reserve</div>}{recStat?.totalLateFees>0&&<div style={{fontSize:9,color:"#a83232"}}>−${recStat.totalLateFees} late fees</div>}</div>:<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>}
+                  {rec?<div><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>${recStat?(recStat.finalDraw+recStat.reserveContributions).toLocaleString():3200}</div></div></div>{recStat?.donationAmt>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.donationAmt} donation</div>}{recStat?.reserveContributions>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.reserveContributions} reserve refund</div>}</div>:<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>}
                 </div>
               );
             })}
@@ -668,19 +764,20 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
 
         {tab==="members"&&(
           <div style={{overflowX:"auto"}}>
-            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden",minWidth:700}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 70px 80px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
-                <span>Member</span><span>Hand</span><span>Deposit</span><span>Draw Date</span><span>Paid</span><span>Extra</span><span>Final Draw</span><span>Status</span>
+            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden",minWidth:750}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 60px 70px 80px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
+                <span>Member</span><span>Hand</span><span>Deposit</span><span>Draw Date</span><span>Paid</span><span>Extra</span><span>Reserve</span><span>Final Draw</span><span>Status</span>
               </div>
               {stats.map(m=>{const dw=m.hand?WEEKS[m.hand-1]:null;return(
-                <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 70px 80px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
+                <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 60px 70px 80px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
                   <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13}}>{m.name}</span></div>
                   <HBadge hand={m.hand}/>
                   <span style={{fontSize:11,color:"#666"}}>{dw?dw.date:"—"}</span>
                   <span style={{fontSize:11,color:"#c97b2e"}}>{dw?dw.drawDate:"—"}</span>
                   <span style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></span>
-                  <span style={{fontSize:13,color:"#7B3F8C"}}>${m.totalExtra.toLocaleString()}</span>
-                  <span style={{fontSize:13,color:"#c97b2e"}}>${m.finalDraw.toLocaleString()}</span>
+                  <span style={{fontSize:13,color:"#7B3F8C"}}>${(m.totalExtra-m.reserveContributions).toLocaleString()}</span>
+                  <span style={{fontSize:13,color:"#2e7d6e"}}>${m.reserveContributions.toLocaleString()}</span>
+                  <span style={{fontSize:13,color:"#c97b2e"}}>${(m.finalDraw+m.reserveContributions).toLocaleString()}</span>
                   <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>{m.arr>0?`${m.arr} behind`:"current"}</span>
                 </div>
               );})}
