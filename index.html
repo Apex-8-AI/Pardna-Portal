@@ -7,7 +7,6 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#111;color:#e8e0d4;font-family:monospace;min-height:100vh}
@@ -20,10 +19,10 @@ button{font-family:monospace;cursor:pointer}
 <script type="text/babel">
 const{useState,useEffect,useMemo,useRef,useCallback}=React;
 
-const SUPA=supabase.createClient(
-  "https://tobycrfvxrziijyqitsw.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvYnljcmZ2eHJ6aWlqeXFpdHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzkwNjQsImV4cCI6MjA5MzMxNTA2NH0.8IgLF4fBDGBpLoiV1jg7ufCMGD6uGyAxg9X1QCjbMfY"
-);
+async function callApi(action,params={}){
+  const r=await fetch('/api/pardna',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...params})});
+  return r.json();
+}
 
 const SESSION_TIMEOUT=30*60*1000;
 const MAX_ATTEMPTS=5;
@@ -58,9 +57,6 @@ function genWeeks(){
 const WEEKS=genWeeks();
 function getCurWeek(){const t=new Date();let c=0;WEEKS.forEach(w=>{if(t>=w.full)c=w.n;});return Math.max(1,c);}
 
-// Calculate missed weeks debt
-// Each missed week = $100 owed + $25 reserve contribution
-// Formula: (missed weeks × $125) + $100 current week
 function calcMissedDebt(lateWeeks){
   const missedCount=lateWeeks.filter(f=>!f.paid).length;
   if(missedCount===0)return{totalOwed:100,missedCount:0,reserveContributions:0,nextWeekAmount:100};
@@ -190,7 +186,6 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
   const extraPerHand=numHands>0?totalExtra/numHands:0;
   const drawWeek=member.hand?WEEKS[member.hand-1]:null;
 
-  // Late payment calculations
   const myLateWeeks=lateFees.filter(f=>f.member_id===member.id&&!f.paid);
   const debtInfo=calcMissedDebt(myLateWeeks);
   const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
@@ -214,7 +209,7 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
 
   const saveDonation=async()=>{handleActivity();setDonationSaving(true);const val=parseFloat(donationInput)||0;await onDonationUpdate(member.id,val,myDonation?.id);setDonationMsg(val===0?"Donation cleared.":"Donation saved!");setDonationSaving(false);setTimeout(()=>setDonationMsg(""),3000);};
   const submitBorrowRequest=async()=>{handleActivity();const amt2=parseFloat(borrowAmt);if(!amt2||amt2<100){setBorrowMsg("Minimum borrow is $100.");return;}if(amt2>eligibleBorrow){setBorrowMsg(`Max eligible is $${eligibleBorrow}.`);return;}if(activeBorrow){setBorrowMsg("You have an active unpaid borrow.");return;}if(pendingRequest){setBorrowMsg("You already have a pending request.");return;}setBorrowSaving(true);await onBorrowRequest(member.id,amt2,borrowReason);setBorrowMsg("Request submitted! Admin will review shortly.");setBorrowAmt("");setBorrowReason("");setBorrowSaving(false);};
-  const saveMemberPin=async(newPin)=>{await SUPA.from("members").update({pin:newPin}).eq("id",member.id);onPinSaved(member.id,newPin);};
+  const saveMemberPin=async(newPin)=>{await callApi('updateMemberPin',{id:member.id,pin:newPin});onPinSaved(member.id,newPin);};
 
   const tabs=["my","draw","capital","borrow","donate","disclosure","pin"];
 
@@ -245,7 +240,6 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
               ))}
             </div>
 
-            {/* Missed payment alert */}
             {debtInfo.missedCount>0&&(
               <div style={{background:"rgba(201,123,46,.08)",border:"1px solid rgba(201,123,46,.25)",borderRadius:12,padding:"16px 18px",marginBottom:14}}>
                 <div style={{fontSize:12,fontWeight:600,color:"#c97b2e",marginBottom:10}}>📋 Next Week Payment Breakdown</div>
@@ -478,30 +472,39 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
   const potMap={};members.forEach(m=>{if(m.hand)potMap[m.hand]=m;});
   const pendingRequests=borrowRequests.filter(r=>r.status==="pending");
 
-  const toggle=async(mid,wn)=>{handleActivity();const cur=allPayments[mid]?.[wn]||false;setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));await SUPA.from("payments").update({paid:!cur}).eq("member_id",mid).eq("week_num",wn);};
+  const toggle=async(mid,wn)=>{
+    handleActivity();
+    const cur=allPayments[mid]?.[wn]||false;
+    setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));
+    await callApi('togglePayment',{memberId:mid,weekNum:wn,paid:!cur});
+  };
 
   const toggleLate=async(mid,wn,isCurrentlyLate)=>{
     handleActivity();
     if(isCurrentlyLate){
-      // Remove late status and remove the $25 reserve contribution
       const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);
       if(fee){
-        await SUPA.from("late_fees").update({paid:true,paid_on:new Date().toISOString().split("T")[0]}).eq("id",fee.id);
+        await callApi('resolveLateFee',{feeId:fee.id});
         setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));
       }
     } else {
-      // Mark as late and auto-add $25 to reserve
       const week=WEEKS.find(w=>w.n===wn);
       const lateStart=week?week.lateStart.toISOString():new Date().toISOString();
-      const{data:lateData}=await SUPA.from("late_fees").insert({member_id:mid,week_num:wn,late_date:lateStart}).select().single();
+      const{lateData,extraData}=await callApi('insertLateFee',{memberId:mid,weekNum:wn,lateDate:lateStart});
       if(lateData)setLateFees(prev=>[...prev,lateData]);
-      // Auto log $25 reserve contribution to extra_capital
-      const{data:extraData}=await SUPA.from("extra_capital").insert({member_id:mid,week_num:wn,amount:RESERVE_CONTRIBUTION,note:"reserve_contribution"}).select().single();
       if(extraData)setExtraCapital(prev=>[...prev,extraData]);
     }
   };
 
-  const logBorrow=async(mid)=>{handleActivity();const amt=parseFloat(borrowForm[mid]||0);if(!amt||amt<100){setBorrowMsg(p=>({...p,[mid]:"Min $100."}));return;}const m=stats.find(s=>s.id===mid);if(amt>m.eligibleBorrow){setBorrowMsg(p=>({...p,[mid]:`Max $${m.eligibleBorrow}.`}));return;}const{data}=await SUPA.from("borrows").insert({member_id:mid,amount:amt}).select().single();if(data){setBorrows(prev=>[...prev,data]);setBorrowForm(p=>({...p,[mid]:""}));setBorrowMsg(p=>({...p,[mid]:"Logged."}));setTimeout(()=>setBorrowMsg(p=>({...p,[mid]:""})),3000);}};
+  const logBorrow=async(mid)=>{
+    handleActivity();
+    const amt=parseFloat(borrowForm[mid]||0);
+    if(!amt||amt<100){setBorrowMsg(p=>({...p,[mid]:"Min $100."}));return;}
+    const m=stats.find(s=>s.id===mid);
+    if(amt>m.eligibleBorrow){setBorrowMsg(p=>({...p,[mid]:`Max $${m.eligibleBorrow}.`}));return;}
+    const{data}=await callApi('insertBorrow',{memberId:mid,amount:amt});
+    if(data){setBorrows(prev=>[...prev,data]);setBorrowForm(p=>({...p,[mid]:""}));setBorrowMsg(p=>({...p,[mid]:"Logged."}));setTimeout(()=>setBorrowMsg(p=>({...p,[mid]:""})),3000);}
+  };
 
   const logExtraCapital=async(mid)=>{
     handleActivity();
@@ -509,14 +512,32 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     const note=extraForm[mid]?.note||"";
     const weekNum=parseInt(extraForm[mid]?.week||cw);
     if(!amt||amt<=0){setExtraMsg(p=>({...p,[mid]:"Enter valid amount."}));return;}
-    const{data}=await SUPA.from("extra_capital").insert({member_id:mid,week_num:weekNum,amount:amt,note}).select().single();
+    const{data}=await callApi('insertExtraCapital',{memberId:mid,weekNum,amount:amt,note});
     if(data){setExtraCapital(prev=>[...prev,data]);setExtraForm(p=>({...p,[mid]:{}}));setExtraMsg(p=>({...p,[mid]:"Extra capital logged."}));setTimeout(()=>setExtraMsg(p=>({...p,[mid]:""})),3000);}
   };
 
-  const toggleRepaid=async(borrowId,current)=>{handleActivity();await SUPA.from("borrows").update({repaid:!current,repaid_on:!current?new Date().toISOString().split("T")[0]:null}).eq("id",borrowId);setBorrows(prev=>prev.map(b=>b.id===borrowId?{...b,repaid:!current}:b));};
-  const reviewRequest=async(reqId,approved,memberId,amount)=>{handleActivity();await SUPA.from("borrow_requests").update({status:approved?"approved":"declined",reviewed_on:new Date().toISOString().split("T")[0]}).eq("id",reqId);if(approved){const{data}=await SUPA.from("borrows").insert({member_id:memberId,amount}).select().single();if(data)setBorrows(prev=>[...prev,data]);}setBorrowRequests(prev=>prev.map(r=>r.id===reqId?{...r,status:approved?"approved":"declined"}:r));};
-  const saveAdminPin=async(newPin)=>{await SUPA.from("admin_settings").update({pin:newPin}).eq("id",1);onAdminPinSaved(newPin);};
-  const resetMemberPin=async(id)=>{const defaults=["1111","2222","3333","4444","5555","6666","7777","8888","9999","0000"];const defPin=defaults[id-1];await SUPA.from("members").update({pin:defPin}).eq("id",id);onMemberPinReset(id,defPin);};
+  const toggleRepaid=async(borrowId,current)=>{
+    handleActivity();
+    await callApi('updateBorrow',{id:borrowId,repaid:!current,repaidOn:!current?new Date().toISOString().split("T")[0]:null});
+    setBorrows(prev=>prev.map(b=>b.id===borrowId?{...b,repaid:!current}:b));
+  };
+
+  const reviewRequest=async(reqId,approved,memberId,amount)=>{
+    handleActivity();
+    const status=approved?"approved":"declined";
+    const res=await callApi('reviewRequest',{reqId,status,memberId,amount});
+    if(approved&&res.data)setBorrows(prev=>[...prev,res.data]);
+    setBorrowRequests(prev=>prev.map(r=>r.id===reqId?{...r,status}:r));
+  };
+
+  const saveAdminPin=async(newPin)=>{await callApi('updateAdminPin',{pin:newPin});onAdminPinSaved(newPin);};
+
+  const resetMemberPin=async(id)=>{
+    const defaults=["1111","2222","3333","4444","5555","6666","7777","8888","9999","0000"];
+    const defPin=defaults[id-1];
+    await callApi('updateMemberPin',{id,pin:defPin});
+    onMemberPinReset(id,defPin);
+  };
 
   const card=(label,val,sub,color)=>(
     <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 18px",flex:1,minWidth:120}}>
@@ -829,25 +850,16 @@ function App(){
 
   useEffect(()=>{
     async function load(){
-      const[memRes,payRes,admRes,borRes,donRes,reqRes,extRes,lfRes]=await Promise.all([
-        SUPA.from("members").select("*").order("id"),
-        SUPA.from("payments").select("*"),
-        SUPA.from("admin_settings").select("*").eq("id",1).single(),
-        SUPA.from("borrows").select("*").order("borrowed_on",{ascending:false}),
-        SUPA.from("donations").select("*"),
-        SUPA.from("borrow_requests").select("*").order("requested_on",{ascending:false}),
-        SUPA.from("extra_capital").select("*").order("logged_on",{ascending:false}),
-        SUPA.from("late_fees").select("*"),
-      ]);
-      setMembers(memRes.data||[]);
-      const pm={};(payRes.data||[]).forEach(r=>{if(!pm[r.member_id])pm[r.member_id]={};pm[r.member_id][r.week_num]=r.paid;});
+      const d=await callApi('load');
+      setMembers(d.members||[]);
+      const pm={};(d.payments||[]).forEach(r=>{if(!pm[r.member_id])pm[r.member_id]={};pm[r.member_id][r.week_num]=r.paid;});
       setAllPayments(pm);
-      if(admRes.data)setAdminPin(admRes.data.pin);
-      setBorrows(borRes.data||[]);
-      setDonations(donRes.data||[]);
-      setBorrowRequests(reqRes.data||[]);
-      setExtraCapital(extRes.data||[]);
-      setLateFees(lfRes.data||[]);
+      if(d.adminSettings)setAdminPin(d.adminSettings.pin);
+      setBorrows(d.borrows||[]);
+      setDonations(d.donations||[]);
+      setBorrowRequests(d.borrowRequests||[]);
+      setExtraCapital(d.extraCapital||[]);
+      setLateFees(d.lateFees||[]);
       setLoading(false);
     }
     load();
@@ -857,8 +869,17 @@ function App(){
   const handleLogout=()=>{destroySession();setSessionToken(null);setRole(null);setCurrentMember(null);};
   const handleMemberPin=(id,newPin)=>{setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:newPin}:m));if(currentMember?.id===id)setCurrentMember(prev=>({...prev,pin:newPin}));};
   const handleMemberPinReset=(id,defPin)=>setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:defPin}:m));
-  const handleDonationUpdate=async(memberId,amount,existingId)=>{if(existingId){await SUPA.from("donations").update({amount}).eq("id",existingId);setDonations(prev=>prev.map(d=>d.id===existingId?{...d,amount}:d));}else if(amount>0){const{data}=await SUPA.from("donations").insert({member_id:memberId,amount}).select().single();if(data)setDonations(prev=>[...prev,data]);}};
-  const handleBorrowRequest=async(memberId,amount,reason)=>{const{data}=await SUPA.from("borrow_requests").insert({member_id:memberId,amount,reason}).select().single();if(data)setBorrowRequests(prev=>[...prev,data]);};
+
+  const handleDonationUpdate=async(memberId,amount,existingId)=>{
+    const res=await callApi('upsertDonation',{memberId,amount,existingId});
+    if(existingId){setDonations(prev=>prev.map(d=>d.id===existingId?{...d,amount}:d));}
+    else if(amount>0&&res.data){setDonations(prev=>[...prev,res.data]);}
+  };
+
+  const handleBorrowRequest=async(memberId,amount,reason)=>{
+    const{data}=await callApi('insertBorrowRequest',{memberId,amount,reason});
+    if(data)setBorrowRequests(prev=>[...prev,data]);
+  };
 
   if(loading)return<Loading/>;
   if(!role)return<Login members={members} adminPin={adminPin} onLogin={handleLogin}/>;
