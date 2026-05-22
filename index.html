@@ -860,7 +860,8 @@ function App(){
       setBorrowRequests(d.borrowRequests||[]);
       setExtraCapital(d.extraCapital||[]);
       setLateFees(d.lateFees||[]);
-      setLoading(false);
+    }catch(e){console.error('Load error:',e);}
+    setLoading(false);
     }
     load();
   },[]);
