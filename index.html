@@ -853,15 +853,15 @@ function App(){
     async function load(){
       try{
       const d=await callApi('load');
-      setMembers(d.members||[]);
+      setMembers(Array.isArray(d.members)?d.members:[]);
       const pm={};(Array.isArray(d.payments)?d.payments:[]).forEach(r=>{if(!pm[r.member_id])pm[r.member_id]={};pm[r.member_id][r.week_num]=r.paid;});
       setAllPayments(pm);
-      if(d.adminSettings)setAdminPin(d.adminSettings.pin);
-      setBorrows(d.borrows||[]);
-      setDonations(d.donations||[]);
-      setBorrowRequests(d.borrowRequests||[]);
-      setExtraCapital(d.extraCapital||[]);
-      setLateFees(d.lateFees||[]);
+      if(d.adminSettings&&d.adminSettings.pin)setAdminPin(d.adminSettings.pin);
+      setBorrows(Array.isArray(d.borrows)?d.borrows:[]);
+      setDonations(Array.isArray(d.donations)?d.donations:[]);
+      setBorrowRequests(Array.isArray(d.borrowRequests)?d.borrowRequests:[]);
+      setExtraCapital(Array.isArray(d.extraCapital)?d.extraCapital:[]);
+      setLateFees(Array.isArray(d.lateFees)?d.lateFees:[]);
     }catch(e){console.error('Load error:',e);setLoadError(String(e));}
     finally{setLoading(false);}
     }
