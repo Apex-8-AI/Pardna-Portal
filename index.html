@@ -854,7 +854,7 @@ function App(){
       try{
       const d=await callApi('load');
       setMembers(d.members||[]);
-      const pm={};(d.payments||[]).forEach(r=>{if(!pm[r.member_id])pm[r.member_id]={};pm[r.member_id][r.week_num]=r.paid;});
+      const pm={};(Array.isArray(d.payments)?d.payments:[]).forEach(r=>{if(!pm[r.member_id])pm[r.member_id]={};pm[r.member_id][r.week_num]=r.paid;});
       setAllPayments(pm);
       if(d.adminSettings)setAdminPin(d.adminSettings.pin);
       setBorrows(d.borrows||[]);
