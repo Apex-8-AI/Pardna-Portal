@@ -180,15 +180,16 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
   const baseAmt=paid*100;
   const myExtra=extraCapital.filter(e=>e.member_id===member.id);
   const totalExtra=myExtra.reduce((s,e)=>s+parseFloat(e.amount||0),0);
+  const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
   const totalContributed=baseAmt+totalExtra;
-  const eligibleBorrow=Math.floor(totalContributed*0.5);
+  // CHANGE: reserve contributions excluded from borrow eligibility — they are refundable, not permanent capital
+  const eligibleBorrow=Math.floor((totalContributed-reserveContributions)*0.5);
   const baseDraw=numHands*3200;
   const extraPerHand=numHands>0?totalExtra/numHands:0;
   const drawWeek=member.hand?WEEKS[member.hand-1]:null;
 
   const myLateWeeks=lateFees.filter(f=>f.member_id===member.id&&!f.paid);
   const debtInfo=calcMissedDebt(myLateWeeks);
-  const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
 
   const myDonation=donations.find(d=>d.member_id===member.id);
   const donationAmt=myDonation?parseFloat(myDonation.amount):0;
@@ -370,7 +371,7 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
             <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
               <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Borrow Eligibility</div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                {[["Base Paid",`$${baseAmt.toLocaleString()}`,"#e8e0d4"],["Extra Capital",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Total In",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Max Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"],["Active Borrow",activeBorrow?`$${activeBorrow.amount}`:"None",activeBorrow?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
+                {[["Base Paid",`$${baseAmt.toLocaleString()}`,"#e8e0d4"],["Extra Capital",`$${(totalExtra-reserveContributions).toLocaleString()}`,"#7B3F8C"],["Total In",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Max Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"],["Active Borrow",activeBorrow?`$${activeBorrow.amount}`:"None",activeBorrow?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
                   <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:16,fontWeight:700,color:c}}>{v}</div></div>
                 ))}
               </div>
@@ -460,7 +461,8 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     const debtInfo=calcMissedDebt(myLateWeeks);
     const baseDraw=numHands*3200;
     const finalDraw=baseDraw+totalExtra-donationAmt;
-    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100,numHands,totalExtra,reserveContributions,totalContributed,eligibleBorrow:Math.floor(totalContributed*0.5),activeBorrow,donationAmt,myBorrows,myExtra,myLateWeeks,debtInfo,finalDraw,baseDraw};
+    // CHANGE: reserve contributions excluded from borrow eligibility — they are refundable, not permanent capital
+    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100,numHands,totalExtra,reserveContributions,totalContributed,eligibleBorrow:Math.floor((totalContributed-reserveContributions)*0.5),activeBorrow,donationAmt,myBorrows,myExtra,myLateWeeks,debtInfo,finalDraw,baseDraw};
   });
 
   const totCol=stats.reduce((s,m)=>s+m.amt,0);
@@ -479,15 +481,28 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     await callApi('togglePayment',{memberId:mid,weekNum:wn,paid:!cur});
   };
 
+  // CHANGE: toggleLate now resets the $25 reserve when admin unchecks "miss"
+  // - Turning ON "miss": adds late fee + $25 reserve to extraCapital (existing behavior)
+  // - Turning OFF "miss": removes late fee AND removes the $25 reserve entry
+  // - $25 reserve is NEVER added to borrow availability (fixed in eligibleBorrow calc above)
+  // - Admin-only: this function only exists in AdminView; MemberView has no toggleLate
   const toggleLate=async(mid,wn,isCurrentlyLate)=>{
     handleActivity();
     if(isCurrentlyLate){
+      // Resolve the late fee record
       const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);
       if(fee){
         await callApi('resolveLateFee',{feeId:fee.id});
         setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));
       }
+      // NEW: also remove the associated $25 reserve_contribution from extraCapital
+      const reserveEntry=extraCapital.find(e=>e.member_id===mid&&e.week_num===wn&&e.note==="reserve_contribution");
+      if(reserveEntry){
+        await callApi('removeReserveContribution',{entryId:reserveEntry.id});
+        setExtraCapital(prev=>prev.filter(e=>e.id!==reserveEntry.id));
+      }
     } else {
+      // Mark as missed: add late fee + $25 reserve
       const week=WEEKS.find(w=>w.n===wn);
       const lateStart=week?week.lateStart.toISOString():new Date().toISOString();
       const{lateData,extraData}=await callApi('insertLateFee',{memberId:mid,weekNum:wn,lateDate:lateStart});
@@ -607,7 +622,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
 
         {tab==="payments"&&(
           <div>
-            <div style={{fontSize:11,color:"#555",marginBottom:14}}>Tap tile = toggle paid · Tap "missed" = mark payment missed (auto-adds $25 reserve)</div>
+            <div style={{fontSize:11,color:"#555",marginBottom:14}}>Tap tile = toggle paid · Tap "missed" = mark payment missed (auto-adds $25 reserve to end-of-cycle refund only)</div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
               <span style={{fontSize:11,color:"#555"}}>Filter:</span>
               <button onClick={()=>setFmem(null)} style={{background:!fmem?"rgba(201,123,46,.12)":"none",border:`1px solid ${!fmem?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:!fmem?"#c97b2e":"#555",fontSize:11,padding:"4px 11px"}}>All</button>
@@ -626,7 +641,7 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
                   <div style={{background:"rgba(201,123,46,.08)",border:"1px solid rgba(201,123,46,.2)",borderRadius:8,padding:"10px 14px",marginBottom:10,fontSize:11}}>
                     <span style={{color:"#c97b2e",fontWeight:600}}>Next week owes: ${m.debtInfo.totalOwed}</span>
                     <span style={{color:"#555",marginLeft:8}}>({m.myLateWeeks.length} missed × $125 + $100 current)</span>
-                    <span style={{color:"#2e7d6e",marginLeft:8}}>Reserve: +${m.debtInfo.reserveContributions} (refunded end of cycle)</span>
+                    <span style={{color:"#2e7d6e",marginLeft:8}}>Reserve: +${m.debtInfo.reserveContributions} → returned end of cycle only</span>
                   </div>
                 )}
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
