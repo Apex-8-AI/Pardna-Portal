@@ -77,6 +77,12 @@ export default async function handler(req, res) {
         result = {ok:true};
         break;
 
+      // NEW: removes the $25 reserve_contribution entry when admin unchecks "miss"
+      case 'removeReserveContribution':
+        await q('DELETE', 'extra_capital', {id:`eq.${p.entryId}`});
+        result = {ok:true};
+        break;
+
       case 'insertBorrow': {
         const r2 = await q('POST', 'borrows', {}, {member_id:p.memberId, amount:p.amount});
         result = {data: Array.isArray(r2)?r2[0]:r2};
