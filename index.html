@@ -4,9 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Pardna Portal</title>
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#111;color:#e8e0d4;font-family:monospace;min-height:100vh}
@@ -182,7 +182,6 @@ function MemberView({member,payments,borrows,donations,borrowRequests,extraCapit
   const totalExtra=myExtra.reduce((s,e)=>s+parseFloat(e.amount||0),0);
   const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
   const totalContributed=baseAmt+totalExtra;
-  // CHANGE: reserve contributions excluded from borrow eligibility — they are refundable, not permanent capital
   const eligibleBorrow=Math.floor((totalContributed-reserveContributions)*0.5);
   const baseDraw=numHands*3200;
   const extraPerHand=numHands>0?totalExtra/numHands:0;
@@ -461,7 +460,6 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     const debtInfo=calcMissedDebt(myLateWeeks);
     const baseDraw=numHands*3200;
     const finalDraw=baseDraw+totalExtra-donationAmt;
-    // CHANGE: reserve contributions excluded from borrow eligibility — they are refundable, not permanent capital
     return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100,numHands,totalExtra,reserveContributions,totalContributed,eligibleBorrow:Math.floor((totalContributed-reserveContributions)*0.5),activeBorrow,donationAmt,myBorrows,myExtra,myLateWeeks,debtInfo,finalDraw,baseDraw};
   });
 
@@ -481,28 +479,20 @@ function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donati
     await callApi('togglePayment',{memberId:mid,weekNum:wn,paid:!cur});
   };
 
-  // CHANGE: toggleLate now resets the $25 reserve when admin unchecks "miss"
-  // - Turning ON "miss": adds late fee + $25 reserve to extraCapital (existing behavior)
-  // - Turning OFF "miss": removes late fee AND removes the $25 reserve entry
-  // - $25 reserve is NEVER added to borrow availability (fixed in eligibleBorrow calc above)
-  // - Admin-only: this function only exists in AdminView; MemberView has no toggleLate
   const toggleLate=async(mid,wn,isCurrentlyLate)=>{
     handleActivity();
     if(isCurrentlyLate){
-      // Resolve the late fee record
       const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);
       if(fee){
         await callApi('resolveLateFee',{feeId:fee.id});
         setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));
       }
-      // NEW: also remove the associated $25 reserve_contribution from extraCapital
       const reserveEntry=extraCapital.find(e=>e.member_id===mid&&e.week_num===wn&&e.note==="reserve_contribution");
       if(reserveEntry){
         await callApi('removeReserveContribution',{entryId:reserveEntry.id});
         setExtraCapital(prev=>prev.filter(e=>e.id!==reserveEntry.id));
       }
     } else {
-      // Mark as missed: add late fee + $25 reserve
       const week=WEEKS.find(w=>w.n===wn);
       const lateStart=week?week.lateStart.toISOString():new Date().toISOString();
       const{lateData,extraData}=await callApi('insertLateFee',{memberId:mid,weekNum:wn,lateDate:lateStart});
