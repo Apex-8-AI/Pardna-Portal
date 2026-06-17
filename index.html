@@ -6,7 +6,6 @@
 <title>Pardna Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#111;color:#e8e0d4;font-family:monospace;min-height:100vh}
@@ -16,899 +15,1027 @@ button{font-family:monospace;cursor:pointer}
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
-const{useState,useEffect,useMemo,useRef,useCallback}=React;
-
-async function callApi(action,params={}){
-  const r=await fetch('/api/pardna',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...params})});
-  return r.json();
+<script>
+"use strict";
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+async function callApi(action, params = {}) {
+    const r = await fetch('/api/pardna', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...params }) });
+    return r.json();
 }
-
-const SESSION_TIMEOUT=30*60*1000;
-const MAX_ATTEMPTS=5;
-const LOCKOUT_TIME=5*60*1000;
-const RESERVE_CONTRIBUTION=25;
-const LATE_FEE_START_HOUR=20;
-
-const secStore={attempts:{},lockouts:{},session:null};
-function genToken(){return Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,"0")).join("");}
-function getLockoutKey(name){return`lockout_${name.toLowerCase()}`;}
-function isLockedOut(name){const key=getLockoutKey(name);const lockTime=secStore.lockouts[key];if(!lockTime)return false;if(Date.now()-lockTime>LOCKOUT_TIME){delete secStore.lockouts[key];delete secStore.attempts[key];return false;}return true;}
-function getLockoutRemaining(name){const key=getLockoutKey(name);const lockTime=secStore.lockouts[key];if(!lockTime)return 0;return Math.max(0,Math.ceil((LOCKOUT_TIME-(Date.now()-lockTime))/1000));}
-function recordFailedAttempt(name){const key=getLockoutKey(name);secStore.attempts[key]=(secStore.attempts[key]||0)+1;if(secStore.attempts[key]>=MAX_ATTEMPTS)secStore.lockouts[key]=Date.now();return MAX_ATTEMPTS-secStore.attempts[key];}
-function clearAttempts(name){const key=getLockoutKey(name);delete secStore.attempts[key];delete secStore.lockouts[key];}
-function createSession(role,member){const token=genToken();secStore.session={role,member,token,expires:Date.now()+SESSION_TIMEOUT};return token;}
-function validateSession(token){if(!secStore.session||secStore.session.token!==token||Date.now()>secStore.session.expires)return null;return secStore.session;}
-function refreshSession(token){if(secStore.session&&secStore.session.token===token)secStore.session.expires=Date.now()+SESSION_TIMEOUT;}
-function destroySession(){secStore.session=null;}
-
-const AVCOLS=["#C97B2E","#2E7D6E","#7B3F8C","#2E5F9B","#A83232","#5B8A2E","#8C5B2E","#2E7B8C","#7B6A2E","#3A7B8C"];
-const START=new Date("2025-06-13");
-const NWEEKS=32;
-
-function genWeeks(){
-  return Array.from({length:NWEEKS},(_,i)=>{
-    const d=new Date(START);d.setDate(d.getDate()+i*7);
-    const draw=new Date(d);draw.setDate(draw.getDate()+1);
-    const lateStart=new Date(d);lateStart.setHours(LATE_FEE_START_HOUR,0,0,0);
-    return{n:i+1,date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),drawDate:draw.toLocaleDateString("en-US",{month:"short",day:"numeric"}),full:d,lateStart};
-  });
+const SESSION_TIMEOUT = 30 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_TIME = 5 * 60 * 1000;
+const RESERVE_CONTRIBUTION = 25;
+const LATE_FEE_START_HOUR = 20;
+const secStore = { attempts: {}, lockouts: {}, session: null };
+function genToken() { return Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, "0")).join(""); }
+function getLockoutKey(name) { return `lockout_${name.toLowerCase()}`; }
+function isLockedOut(name) { const key = getLockoutKey(name); const lockTime = secStore.lockouts[key]; if (!lockTime)
+    return false; if (Date.now() - lockTime > LOCKOUT_TIME) {
+    delete secStore.lockouts[key];
+    delete secStore.attempts[key];
+    return false;
+} return true; }
+function getLockoutRemaining(name) { const key = getLockoutKey(name); const lockTime = secStore.lockouts[key]; if (!lockTime)
+    return 0; return Math.max(0, Math.ceil((LOCKOUT_TIME - (Date.now() - lockTime)) / 1000)); }
+function recordFailedAttempt(name) { const key = getLockoutKey(name); secStore.attempts[key] = (secStore.attempts[key] || 0) + 1; if (secStore.attempts[key] >= MAX_ATTEMPTS)
+    secStore.lockouts[key] = Date.now(); return MAX_ATTEMPTS - secStore.attempts[key]; }
+function clearAttempts(name) { const key = getLockoutKey(name); delete secStore.attempts[key]; delete secStore.lockouts[key]; }
+function createSession(role, member) { const token = genToken(); secStore.session = { role, member, token, expires: Date.now() + SESSION_TIMEOUT }; return token; }
+function validateSession(token) { if (!secStore.session || secStore.session.token !== token || Date.now() > secStore.session.expires)
+    return null; return secStore.session; }
+function refreshSession(token) { if (secStore.session && secStore.session.token === token)
+    secStore.session.expires = Date.now() + SESSION_TIMEOUT; }
+function destroySession() { secStore.session = null; }
+const AVCOLS = ["#C97B2E", "#2E7D6E", "#7B3F8C", "#2E5F9B", "#A83232", "#5B8A2E", "#8C5B2E", "#2E7B8C", "#7B6A2E", "#3A7B8C"];
+const START = new Date("2025-06-13");
+const NWEEKS = 32;
+function genWeeks() {
+    return Array.from({ length: NWEEKS }, (_, i) => {
+        const d = new Date(START);
+        d.setDate(d.getDate() + i * 7);
+        const draw = new Date(d);
+        draw.setDate(draw.getDate() + 1);
+        const lateStart = new Date(d);
+        lateStart.setHours(LATE_FEE_START_HOUR, 0, 0, 0);
+        return { n: i + 1, date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), drawDate: draw.toLocaleDateString("en-US", { month: "short", day: "numeric" }), full: d, lateStart };
+    });
 }
-const WEEKS=genWeeks();
-function getCurWeek(){const t=new Date();let c=0;WEEKS.forEach(w=>{if(t>=w.full)c=w.n;});return Math.max(1,c);}
-
-function calcMissedDebt(lateWeeks){
-  const missedCount=lateWeeks.filter(f=>!f.paid).length;
-  if(missedCount===0)return{totalOwed:100,missedCount:0,reserveContributions:0,nextWeekAmount:100};
-  const missedDebt=missedCount*100;
-  const reserveContributions=missedCount*RESERVE_CONTRIBUTION;
-  const totalOwed=missedDebt+reserveContributions+100;
-  return{totalOwed,missedCount,reserveContributions,nextWeekAmount:totalOwed};
+const WEEKS = genWeeks();
+function getCurWeek() { const t = new Date(); let c = 0; WEEKS.forEach(w => { if (t >= w.full)
+    c = w.n; }); return Math.max(1, c); }
+function calcMissedDebt(lateWeeks) {
+    const missedCount = lateWeeks.filter(f => !f.paid).length;
+    if (missedCount === 0)
+        return { totalOwed: 100, missedCount: 0, reserveContributions: 0, nextWeekAmount: 100 };
+    const missedDebt = missedCount * 100;
+    const reserveContributions = missedCount * RESERVE_CONTRIBUTION;
+    const totalOwed = missedDebt + reserveContributions + 100;
+    return { totalOwed, missedCount, reserveContributions, nextWeekAmount: totalOwed };
 }
-
-function Av({name,idx,size=36}){const c=AVCOLS[idx%AVCOLS.length];return<div style={{width:size,height:size,borderRadius:"50%",background:c+"28",border:`1.5px solid ${c}55`,color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.4,fontWeight:700,flexShrink:0}}>{name[0]}</div>;}
-function HBadge({hand}){return hand?<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",fontWeight:600}}>Hand #{hand}</span>:<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"rgba(255,255,255,.05)",color:"#555",border:"1px solid #2a2a2a"}}>Unassigned</span>;}
-function Loading(){return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>💰</div><div style={{fontSize:13,color:"#555"}}>Loading Pardna Portal...</div></div></div>;}
-function SessionWarning({remaining,onExtend}){if(remaining>60)return null;return<div style={{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:"#1c1c1c",border:"1px solid rgba(201,123,46,.4)",borderRadius:12,padding:"12px 20px",zIndex:100,display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,.5)"}}><span style={{fontSize:12,color:"#c97b2e"}}>⏱ Session expires in {remaining}s</span><button onClick={onExtend} style={{background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,color:"#c97b2e",fontSize:11,padding:"4px 12px"}}>Stay Logged In</button></div>;}
-
-function Disclosure(){
-  const sections=[
-    {title:"What this is",body:"This is a private rotating savings group between trusted members. It is not a bank, financial institution, or investment product. No interest is earned on contributions."},
-    {title:"Your commitment",body:"By joining you agree to contribute $100 every week for the full cycle without exception. Consistency is the foundation that keeps the group strong for everyone."},
-    {title:"Payments",body:"All contributions are made in good faith between members. Weekly deposits are due by 8pm every Friday. Staying consistent protects your draw and builds your standing in the group."},
-    {title:"Missed Payments",body:"Life happens. If a payment is missed your following week's contribution will be adjusted to include the missed week plus a $25 reserve contribution. That $25 is held safely in your personal reserve and returned to you in full at the end of the cycle. The more you contribute the more comes back to you."},
-    {title:"Draws",body:"Your draw amount is based on your total contributions plus any extra capital added. Members who grow their contributions naturally unlock a larger payout when their draw arrives. Your reserve contributions are refunded at end of cycle and added to your final draw."},
-    {title:"Extra Capital",body:"Members have the freedom to add extra capital any week entirely on their own terms. Think of it as quietly building your own payout — every dollar added works in your favor and comes back to you at draw time. Members receive their full Pardna draw on top of any extra capital contributed, meaning your draw and your extra capital are paid out together. For members throwing multiple hands, extra capital is divided evenly across each hand — growing every draw simultaneously. There is no cap, no pressure, and no fixed schedule. Your extra capital is yours."},
-    {title:"Borrowing",body:"Members with a strong payment history are eligible to borrow up to 50% of their total contributions. Members who build their contributions over time naturally expand their borrowing access — giving them a financial cushion when life calls for it. Approval is based on payment history and is at the banker's discretion."},
-    {title:"No guarantees",body:"The banker is a fellow member coordinating the group in good faith. This is not a legally registered financial service. Members join voluntarily and assume full responsibility for their participation."},
-    {title:"Privacy",body:"Your information is shared only within this group and never sold or distributed to third parties."},
-  ];
-  return(
-    <div style={{maxWidth:680,margin:"0 auto"}}>
-      <div style={{background:"linear-gradient(135deg,rgba(201,123,46,.1),rgba(46,125,110,.08))",border:"1px solid rgba(201,123,46,.2)",borderRadius:16,padding:"24px 28px",marginBottom:20,textAlign:"center"}}>
-        <div style={{fontSize:28,marginBottom:10}}>💰</div>
-        <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>Welcome to the Pardna!</div>
-        <div style={{fontSize:12,color:"#888",lineHeight:1.7}}>A private rotating savings group built on trust, consistency, and community. Please review the information below so you know exactly how everything works.</div>
-      </div>
-      {sections.map(s=>(
-        <div key={s.title} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"18px 20px",marginBottom:10}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#c97b2e",marginBottom:8,textTransform:"uppercase",letterSpacing:".5px"}}>{s.title}</div>
-          <div style={{fontSize:12,color:"#aaa",lineHeight:1.8}}>{s.body}</div>
-        </div>
-      ))}
-      <div style={{background:"rgba(255,255,255,.02)",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 20px",marginTop:10,textAlign:"center"}}>
-        <div style={{fontSize:11,color:"#444",lineHeight:1.7}}>By accessing this portal you acknowledge that you have read and understood the terms outlined above. This group operates in good faith between all members.</div>
-      </div>
-    </div>
-  );
+function Av({ name, idx, size = 36 }) { const c = AVCOLS[idx % AVCOLS.length]; return React.createElement("div", { style: { width: size, height: size, borderRadius: "50%", background: c + "28", border: `1.5px solid ${c}55`, color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4, fontWeight: 700, flexShrink: 0 } }, name[0]); }
+function HBadge({ hand }) { return hand ? React.createElement("span", { style: { fontSize: 10, padding: "2px 7px", borderRadius: 20, background: "rgba(201,123,46,.15)", color: "#c97b2e", border: "1px solid rgba(201,123,46,.3)", fontWeight: 600 } },
+    "Hand #",
+    hand) : React.createElement("span", { style: { fontSize: 10, padding: "2px 7px", borderRadius: 20, background: "rgba(255,255,255,.05)", color: "#555", border: "1px solid #2a2a2a" } }, "Unassigned"); }
+function Loading() { return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#111" } },
+    React.createElement("div", { style: { textAlign: "center" } },
+        React.createElement("div", { style: { fontSize: 32, marginBottom: 12 } }, "\uD83D\uDCB0"),
+        React.createElement("div", { style: { fontSize: 13, color: "#555" } }, "Loading Pardna Portal..."))); }
+function SessionWarning({ remaining, onExtend }) { if (remaining > 60)
+    return null; return React.createElement("div", { style: { position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "#1c1c1c", border: "1px solid rgba(201,123,46,.4)", borderRadius: 12, padding: "12px 20px", zIndex: 100, display: "flex", alignItems: "center", gap: 12, boxShadow: "0 4px 20px rgba(0,0,0,.5)" } },
+    React.createElement("span", { style: { fontSize: 12, color: "#c97b2e" } },
+        "\u23F1 Session expires in ",
+        remaining,
+        "s"),
+    React.createElement("button", { onClick: onExtend, style: { background: "rgba(201,123,46,.2)", border: "1px solid rgba(201,123,46,.4)", borderRadius: 8, color: "#c97b2e", fontSize: 11, padding: "4px 12px" } }, "Stay Logged In")); }
+function Disclosure() {
+    const sections = [
+        { title: "What this is", body: "This is a private rotating savings group between trusted members. It is not a bank, financial institution, or investment product. No interest is earned on contributions." },
+        { title: "Your commitment", body: "By joining you agree to contribute $100 every week for the full cycle without exception. Consistency is the foundation that keeps the group strong for everyone." },
+        { title: "Payments", body: "All contributions are made in good faith between members. Weekly deposits are due by 8pm every Friday. Staying consistent protects your draw and builds your standing in the group." },
+        { title: "Missed Payments", body: "Life happens. If a payment is missed your following week's contribution will be adjusted to include the missed week plus a $25 reserve contribution. That $25 is held safely in your personal reserve and returned to you in full at the end of the cycle. The more you contribute the more comes back to you." },
+        { title: "Draws", body: "Your draw amount is based on your total contributions plus any extra capital added. Members who grow their contributions naturally unlock a larger payout when their draw arrives. Your reserve contributions are refunded at end of cycle and added to your final draw." },
+        { title: "Extra Capital", body: "Members have the freedom to add extra capital any week entirely on their own terms. Think of it as quietly building your own payout — every dollar added works in your favor and comes back to you at draw time. Members receive their full Pardna draw on top of any extra capital contributed, meaning your draw and your extra capital are paid out together. For members throwing multiple hands, extra capital is divided evenly across each hand — growing every draw simultaneously. There is no cap, no pressure, and no fixed schedule. Your extra capital is yours." },
+        { title: "Borrowing", body: "Members with a strong payment history are eligible to borrow up to 50% of their total contributions. Members who build their contributions over time naturally expand their borrowing access — giving them a financial cushion when life calls for it. Approval is based on payment history and is at the banker's discretion." },
+        { title: "No guarantees", body: "The banker is a fellow member coordinating the group in good faith. This is not a legally registered financial service. Members join voluntarily and assume full responsibility for their participation." },
+        { title: "Privacy", body: "Your information is shared only within this group and never sold or distributed to third parties." },
+    ];
+    return (React.createElement("div", { style: { maxWidth: 680, margin: "0 auto" } },
+        React.createElement("div", { style: { background: "linear-gradient(135deg,rgba(201,123,46,.1),rgba(46,125,110,.08))", border: "1px solid rgba(201,123,46,.2)", borderRadius: 16, padding: "24px 28px", marginBottom: 20, textAlign: "center" } },
+            React.createElement("div", { style: { fontSize: 28, marginBottom: 10 } }, "\uD83D\uDCB0"),
+            React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 8 } }, "Welcome to the Pardna!"),
+            React.createElement("div", { style: { fontSize: 12, color: "#888", lineHeight: 1.7 } }, "A private rotating savings group built on trust, consistency, and community. Please review the information below so you know exactly how everything works.")),
+        sections.map(s => (React.createElement("div", { key: s.title, style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, padding: "18px 20px", marginBottom: 10 } },
+            React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#c97b2e", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".5px" } }, s.title),
+            React.createElement("div", { style: { fontSize: 12, color: "#aaa", lineHeight: 1.8 } }, s.body)))),
+        React.createElement("div", { style: { background: "rgba(255,255,255,.02)", border: "1px solid #2a2a2a", borderRadius: 12, padding: "14px 20px", marginTop: 10, textAlign: "center" } },
+            React.createElement("div", { style: { fontSize: 11, color: "#444", lineHeight: 1.7 } }, "By accessing this portal you acknowledge that you have read and understood the terms outlined above. This group operates in good faith between all members."))));
 }
-
-function ChangePinForm({currentPin,onSave,onCancel}){
-  const[cur,setCur]=useState("");const[n1,setN1]=useState("");const[n2,setN2]=useState("");
-  const[err,setErr]=useState("");const[ok,setOk]=useState(false);const[saving,setSaving]=useState(false);
-  const submit=async()=>{
-    if(cur!==currentPin){setErr("Current PIN incorrect.");return;}
-    if(n1.length<4){setErr("New PIN must be at least 4 digits.");return;}
-    if(!/^\d+$/.test(n1)){setErr("PIN must be numbers only.");return;}
-    if(n1!==n2){setErr("PINs don't match.");return;}
-    if(n1===currentPin){setErr("New PIN must be different.");return;}
-    setSaving(true);await onSave(n1);setSaving(false);setOk(true);
-  };
-  if(ok)return<div style={{textAlign:"center",padding:"40px 20px"}}><div style={{fontSize:28,marginBottom:12}}>✅</div><div style={{fontWeight:600,marginBottom:8}}>PIN Updated</div><button onClick={onCancel} style={{background:"rgba(46,125,110,.15)",border:"1px solid rgba(46,125,110,.35)",borderRadius:8,padding:"10px 24px",color:"#2e7d6e",fontSize:12}}>Done</button></div>;
-  return(
-    <div style={{maxWidth:320,margin:"0 auto",padding:20}}>
-      {[["Current PIN",cur,setCur],["New PIN",n1,setN1],["Confirm New PIN",n2,setN2]].map(([lbl,val,set])=>(
-        <div key={lbl} style={{marginBottom:14}}><div style={{fontSize:11,color:"#555",marginBottom:6}}>{lbl}</div><input type="password" value={val} onChange={e=>set(e.target.value)} style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:14,textAlign:"center"}}/></div>
-      ))}
-      {err&&<div style={{fontSize:11,color:"#a83232",marginBottom:12}}>{err}</div>}
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={onCancel} style={{flex:1,background:"none",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px",color:"#555",fontSize:12}}>Cancel</button>
-        <button onClick={submit} disabled={saving} style={{flex:1,background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,padding:"10px",color:"#c97b2e",fontSize:12,fontWeight:600}}>{saving?"Saving...":"Save PIN"}</button>
-      </div>
-    </div>
-  );
+function ChangePinForm({ currentPin, onSave, onCancel }) {
+    const [cur, setCur] = useState("");
+    const [n1, setN1] = useState("");
+    const [n2, setN2] = useState("");
+    const [err, setErr] = useState("");
+    const [ok, setOk] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const submit = async () => {
+        if (cur !== currentPin) {
+            setErr("Current PIN incorrect.");
+            return;
+        }
+        if (n1.length < 4) {
+            setErr("New PIN must be at least 4 digits.");
+            return;
+        }
+        if (!/^\d+$/.test(n1)) {
+            setErr("PIN must be numbers only.");
+            return;
+        }
+        if (n1 !== n2) {
+            setErr("PINs don't match.");
+            return;
+        }
+        if (n1 === currentPin) {
+            setErr("New PIN must be different.");
+            return;
+        }
+        setSaving(true);
+        await onSave(n1);
+        setSaving(false);
+        setOk(true);
+    };
+    if (ok)
+        return React.createElement("div", { style: { textAlign: "center", padding: "40px 20px" } },
+            React.createElement("div", { style: { fontSize: 28, marginBottom: 12 } }, "\u2705"),
+            React.createElement("div", { style: { fontWeight: 600, marginBottom: 8 } }, "PIN Updated"),
+            React.createElement("button", { onClick: onCancel, style: { background: "rgba(46,125,110,.15)", border: "1px solid rgba(46,125,110,.35)", borderRadius: 8, padding: "10px 24px", color: "#2e7d6e", fontSize: 12 } }, "Done"));
+    return (React.createElement("div", { style: { maxWidth: 320, margin: "0 auto", padding: 20 } },
+        [["Current PIN", cur, setCur], ["New PIN", n1, setN1], ["Confirm New PIN", n2, setN2]].map(([lbl, val, set]) => (React.createElement("div", { key: lbl, style: { marginBottom: 14 } },
+            React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 6 } }, lbl),
+            React.createElement("input", { type: "password", value: val, onChange: e => set(e.target.value), style: { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "10px 12px", fontSize: 14, textAlign: "center" } })))),
+        err && React.createElement("div", { style: { fontSize: 11, color: "#a83232", marginBottom: 12 } }, err),
+        React.createElement("div", { style: { display: "flex", gap: 10 } },
+            React.createElement("button", { onClick: onCancel, style: { flex: 1, background: "none", border: "1px solid #2a2a2a", borderRadius: 8, padding: "10px", color: "#555", fontSize: 12 } }, "Cancel"),
+            React.createElement("button", { onClick: submit, disabled: saving, style: { flex: 1, background: "rgba(201,123,46,.2)", border: "1px solid rgba(201,123,46,.4)", borderRadius: 8, padding: "10px", color: "#c97b2e", fontSize: 12, fontWeight: 600 } }, saving ? "Saving..." : "Save PIN"))));
 }
-
-function Login({members,adminPin,onLogin}){
-  const[name,setName]=useState("");const[pin,setPin]=useState("");const[err,setErr]=useState("");
-  const[loading,setLoading]=useState(false);const[locked,setLocked]=useState(false);const[countdown,setCountdown]=useState(0);
-  useEffect(()=>{if(!locked)return;const interval=setInterval(()=>{const r=getLockoutRemaining(name);setCountdown(r);if(r<=0){setLocked(false);setErr("");}},1000);return()=>clearInterval(interval);},[locked,name]);
-  const submit=async()=>{
-    if(!name){setErr("Please select your name.");return;}
-    if(isLockedOut(name)){setLocked(true);setCountdown(getLockoutRemaining(name));setErr(`Locked. Try again in ${getLockoutRemaining(name)}s.`);return;}
-    setLoading(true);setErr("");
-    await new Promise(r=>setTimeout(r,300));
-    if(name==="__admin__"&&pin===adminPin){clearAttempts("__admin__");onLogin("admin",null);return;}
-    const m=members.find(m=>m.name.toLowerCase()===name.toLowerCase()&&m.pin===pin);
-    if(m){clearAttempts(name);onLogin("member",m);}
-    else{const remaining=recordFailedAttempt(name);if(isLockedOut(name)){setLocked(true);setCountdown(getLockoutRemaining(name));setErr("Too many failed attempts. Locked for 5 minutes.");}else setErr(`Incorrect PIN. ${remaining} attempt${remaining!==1?"s":""} remaining.`);}
-    setLoading(false);setPin("");
-  };
-  return(
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111"}}>
-      <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:"40px 32px",width:"100%",maxWidth:340}}>
-        <div style={{textAlign:"center",marginBottom:28}}><div style={{fontSize:32,marginBottom:10}}>💰</div><div style={{fontSize:20,fontWeight:700}}>Pardna Portal</div><div style={{fontSize:11,color:"#555",marginTop:4}}>3200 Group · 10 Members</div></div>
-        <div style={{fontSize:11,color:"#555",marginBottom:6}}>Your Name</div>
-        <select value={name} onChange={e=>{setName(e.target.value);setErr("");setLocked(false);}} style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"11px 12px",color:name?"#e8e0d4":"#555",fontSize:13,marginBottom:12}}>
-          <option value="">Select your name...</option>
-          {members.map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
-          <option value="__admin__">Admin</option>
-        </select>
-        <div style={{fontSize:11,color:"#555",marginBottom:6}}>PIN</div>
-        <input type="password" placeholder="Enter your PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!locked&&submit()} disabled={locked}
-          style={{width:"100%",background:"#111",border:`1px solid ${locked?"rgba(168,50,50,.4)":"#2a2a2a"}`,borderRadius:8,padding:"11px 12px",fontSize:15,textAlign:"center",marginBottom:10,opacity:locked?.6:1}}/>
-        {locked&&<div style={{background:"rgba(168,50,50,.1)",border:"1px solid rgba(168,50,50,.25)",borderRadius:8,padding:"10px",textAlign:"center",marginBottom:10}}><div style={{fontSize:12,color:"#a83232",fontWeight:600}}>🔒 Account Locked</div><div style={{fontSize:11,color:"#888",marginTop:4}}>Try again in {countdown}s</div></div>}
-        {!locked&&err&&<div style={{fontSize:11,color:"#a83232",marginBottom:10,textAlign:"center"}}>{err}</div>}
-        <button onClick={submit} disabled={loading||locked} style={{width:"100%",background:locked?"rgba(255,255,255,.05)":"rgba(201,123,46,.2)",border:`1px solid ${locked?"#2a2a2a":"rgba(201,123,46,.4)"}`,borderRadius:8,padding:12,color:locked?"#444":"#c97b2e",fontSize:13,fontWeight:600}}>{loading?"Verifying...":locked?"Locked":"Enter"}</button>
-      </div>
-    </div>
-  );
+function Login({ members, adminPin, onLogin }) {
+    const [name, setName] = useState("");
+    const [pin, setPin] = useState("");
+    const [err, setErr] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [locked, setLocked] = useState(false);
+    const [countdown, setCountdown] = useState(0);
+    useEffect(() => { if (!locked)
+        return; const interval = setInterval(() => { const r = getLockoutRemaining(name); setCountdown(r); if (r <= 0) {
+        setLocked(false);
+        setErr("");
+    } }, 1000); return () => clearInterval(interval); }, [locked, name]);
+    const submit = async () => {
+        if (!name) {
+            setErr("Please select your name.");
+            return;
+        }
+        if (isLockedOut(name)) {
+            setLocked(true);
+            setCountdown(getLockoutRemaining(name));
+            setErr(`Locked. Try again in ${getLockoutRemaining(name)}s.`);
+            return;
+        }
+        setLoading(true);
+        setErr("");
+        await new Promise(r => setTimeout(r, 300));
+        if (name === "__admin__" && pin === adminPin) {
+            clearAttempts("__admin__");
+            onLogin("admin", null);
+            return;
+        }
+        const m = members.find(m => m.name.toLowerCase() === name.toLowerCase() && m.pin === pin);
+        if (m) {
+            clearAttempts(name);
+            onLogin("member", m);
+        }
+        else {
+            const remaining = recordFailedAttempt(name);
+            if (isLockedOut(name)) {
+                setLocked(true);
+                setCountdown(getLockoutRemaining(name));
+                setErr("Too many failed attempts. Locked for 5 minutes.");
+            }
+            else
+                setErr(`Incorrect PIN. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`);
+        }
+        setLoading(false);
+        setPin("");
+    };
+    return (React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#111" } },
+        React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 16, padding: "40px 32px", width: "100%", maxWidth: 340 } },
+            React.createElement("div", { style: { textAlign: "center", marginBottom: 28 } },
+                React.createElement("div", { style: { fontSize: 32, marginBottom: 10 } }, "\uD83D\uDCB0"),
+                React.createElement("div", { style: { fontSize: 20, fontWeight: 700 } }, "Pardna Portal"),
+                React.createElement("div", { style: { fontSize: 11, color: "#555", marginTop: 4 } }, "3200 Group \u00B7 10 Members")),
+            React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 6 } }, "Your Name"),
+            React.createElement("select", { value: name, onChange: e => { setName(e.target.value); setErr(""); setLocked(false); }, style: { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "11px 12px", color: name ? "#e8e0d4" : "#555", fontSize: 13, marginBottom: 12 } },
+                React.createElement("option", { value: "" }, "Select your name..."),
+                members.map(m => React.createElement("option", { key: m.id, value: m.name }, m.name)),
+                React.createElement("option", { value: "__admin__" }, "Admin")),
+            React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 6 } }, "PIN"),
+            React.createElement("input", { type: "password", placeholder: "Enter your PIN", value: pin, onChange: e => setPin(e.target.value), onKeyDown: e => e.key === "Enter" && !locked && submit(), disabled: locked, style: { width: "100%", background: "#111", border: `1px solid ${locked ? "rgba(168,50,50,.4)" : "#2a2a2a"}`, borderRadius: 8, padding: "11px 12px", fontSize: 15, textAlign: "center", marginBottom: 10, opacity: locked ? .6 : 1 } }),
+            locked && React.createElement("div", { style: { background: "rgba(168,50,50,.1)", border: "1px solid rgba(168,50,50,.25)", borderRadius: 8, padding: "10px", textAlign: "center", marginBottom: 10 } },
+                React.createElement("div", { style: { fontSize: 12, color: "#a83232", fontWeight: 600 } }, "\uD83D\uDD12 Account Locked"),
+                React.createElement("div", { style: { fontSize: 11, color: "#888", marginTop: 4 } },
+                    "Try again in ",
+                    countdown,
+                    "s")),
+            !locked && err && React.createElement("div", { style: { fontSize: 11, color: "#a83232", marginBottom: 10, textAlign: "center" } }, err),
+            React.createElement("button", { onClick: submit, disabled: loading || locked, style: { width: "100%", background: locked ? "rgba(255,255,255,.05)" : "rgba(201,123,46,.2)", border: `1px solid ${locked ? "#2a2a2a" : "rgba(201,123,46,.4)"}`, borderRadius: 8, padding: 12, color: locked ? "#444" : "#c97b2e", fontSize: 13, fontWeight: 600 } }, loading ? "Verifying..." : locked ? "Locked" : "Enter"))));
 }
-
-function MemberView({member,payments,borrows,donations,borrowRequests,extraCapital,lateFees,cw,onLogout,onPinSaved,onDonationUpdate,onBorrowRequest,sessionToken}){
-  const[subTab,setSubTab]=useState("my");
-  const[sessionRemaining,setSessionRemaining]=useState(SESSION_TIMEOUT/1000);
-  useEffect(()=>{const interval=setInterval(()=>{const sess=validateSession(sessionToken);if(!sess){onLogout();return;}const remaining=Math.ceil((sess.expires-Date.now())/1000);setSessionRemaining(remaining);if(remaining<=0)onLogout();},1000);return()=>clearInterval(interval);},[sessionToken]);
-  const handleActivity=useCallback(()=>refreshSession(sessionToken),[sessionToken]);
-  const extendSession=()=>setSessionRemaining(SESSION_TIMEOUT/1000);
-
-  const idx=member.id-1;
-  const numHands=member.hands||1;
-  const paid=WEEKS.filter(w=>w.n<=cw&&payments[w.n]).length;
-  const due=Math.min(cw,NWEEKS);
-  const arr=due-paid;
-  const baseAmt=paid*100;
-  const myExtra=extraCapital.filter(e=>e.member_id===member.id);
-  const totalExtra=myExtra.reduce((s,e)=>s+parseFloat(e.amount||0),0);
-  const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
-  const totalContributed=baseAmt+totalExtra;
-  const eligibleBorrow=Math.floor((totalContributed-reserveContributions)*0.5);
-  const baseDraw=numHands*3200;
-  const extraPerHand=numHands>0?totalExtra/numHands:0;
-  const drawWeek=member.hand?WEEKS[member.hand-1]:null;
-
-  const myLateWeeks=lateFees.filter(f=>f.member_id===member.id&&!f.paid);
-  const debtInfo=calcMissedDebt(myLateWeeks);
-
-  const myDonation=donations.find(d=>d.member_id===member.id);
-  const donationAmt=myDonation?parseFloat(myDonation.amount):0;
-  const finalDraw=baseDraw+totalExtra-donationAmt;
-
-  const myBorrows=borrows.filter(b=>b.member_id===member.id);
-  const activeBorrow=myBorrows.find(b=>!b.repaid);
-  const myRequests=borrowRequests.filter(r=>r.member_id===member.id);
-  const pendingRequest=myRequests.find(r=>r.status==="pending");
-
-  const[donationInput,setDonationInput]=useState(donationAmt>0?String(donationAmt):"");
-  const[donationSaving,setDonationSaving]=useState(false);
-  const[donationMsg,setDonationMsg]=useState("");
-  const[borrowAmt,setBorrowAmt]=useState("");
-  const[borrowReason,setBorrowReason]=useState("");
-  const[borrowMsg,setBorrowMsg]=useState("");
-  const[borrowSaving,setBorrowSaving]=useState(false);
-
-  const saveDonation=async()=>{handleActivity();setDonationSaving(true);const val=parseFloat(donationInput)||0;await onDonationUpdate(member.id,val,myDonation?.id);setDonationMsg(val===0?"Donation cleared.":"Donation saved!");setDonationSaving(false);setTimeout(()=>setDonationMsg(""),3000);};
-  const submitBorrowRequest=async()=>{handleActivity();const amt2=parseFloat(borrowAmt);if(!amt2||amt2<100){setBorrowMsg("Minimum borrow is $100.");return;}if(amt2>eligibleBorrow){setBorrowMsg(`Max eligible is $${eligibleBorrow}.`);return;}if(activeBorrow){setBorrowMsg("You have an active unpaid borrow.");return;}if(pendingRequest){setBorrowMsg("You already have a pending request.");return;}setBorrowSaving(true);await onBorrowRequest(member.id,amt2,borrowReason);setBorrowMsg("Request submitted! Admin will review shortly.");setBorrowAmt("");setBorrowReason("");setBorrowSaving(false);};
-  const saveMemberPin=async(newPin)=>{await callApi('updateMemberPin',{id:member.id,pin:newPin});onPinSaved(member.id,newPin);};
-
-  const tabs=["my","draw","capital","borrow","donate","disclosure","pin"];
-
-  return(
-    <div style={{minHeight:"100vh",background:"#111"}} onClick={handleActivity} onKeyDown={handleActivity}>
-      <SessionWarning remaining={sessionRemaining} onExtend={extendSession}/>
-      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <Av name={member.name} idx={idx}/>
-          <div><div style={{fontSize:15,fontWeight:700}}>{member.name}</div><div style={{fontSize:10,color:"#555",marginTop:2}}><HBadge hand={member.hand}/>{numHands>1&&<span style={{marginLeft:6,fontSize:10,color:"#7B3F8C"}}>{numHands} hands</span>}</div></div>
-        </div>
-        <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
-      </div>
-      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
-        {tabs.map(t=>(
-          <button key={t} onClick={()=>{setSubTab(t);handleActivity();}} style={{background:"none",border:"none",borderBottom:`2px solid ${subTab===t?"#c97b2e":"transparent"}`,color:subTab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap"}}>
-            {t==="my"?"My Payments":t==="draw"?"My Draw":t==="capital"?"Extra Capital":t==="borrow"?"Borrow":t==="donate"?"Donate":t==="disclosure"?"Disclosure":"Change PIN"}
-          </button>
-        ))}
-      </div>
-      <div style={{padding:20,maxWidth:700,margin:"0 auto"}}>
-
-        {subTab==="my"&&(
-          <div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
-              {[["Base Paid",`$${baseAmt.toLocaleString()}`,"#e8e0d4"],["Extra Capital",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Total In",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Weeks",`${paid}/${due}`,arr>0?"#a83232":"#2e7d6e"],["Status",arr>0?`${arr} behind`:"Current",arr>0?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
-                <div key={l} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"13px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{l}</div><div style={{fontSize:15,fontWeight:700,color:c||"#e8e0d4"}}>{v}</div></div>
-              ))}
-            </div>
-
-            {debtInfo.missedCount>0&&(
-              <div style={{background:"rgba(201,123,46,.08)",border:"1px solid rgba(201,123,46,.25)",borderRadius:12,padding:"16px 18px",marginBottom:14}}>
-                <div style={{fontSize:12,fontWeight:600,color:"#c97b2e",marginBottom:10}}>📋 Next Week Payment Breakdown</div>
-                <div style={{fontSize:11,color:"#888",lineHeight:2}}>
-                  {myLateWeeks.map(f=>(
-                    <div key={f.id} style={{display:"flex",justifyContent:"space-between"}}>
-                      <span>Week {f.week_num} missed payment</span><span style={{color:"#e8e0d4"}}>$100</span>
-                    </div>
-                  ))}
-                  {myLateWeeks.map(f=>(
-                    <div key={`r${f.id}`} style={{display:"flex",justifyContent:"space-between"}}>
-                      <span>Week {f.week_num} reserve contribution</span><span style={{color:"#2e7d6e"}}>$25 <span style={{fontSize:9,color:"#555"}}>(refunded end of cycle)</span></span>
-                    </div>
-                  ))}
-                  <div style={{display:"flex",justifyContent:"space-between"}}><span>Current week</span><span style={{color:"#e8e0d4"}}>$100</span></div>
-                  <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid rgba(201,123,46,.2)",paddingTop:8,marginTop:4}}>
-                    <span style={{fontWeight:600,color:"#c97b2e"}}>Next week total</span>
-                    <span style={{fontWeight:600,color:"#c97b2e"}}>${debtInfo.totalOwed}</span>
-                  </div>
-                </div>
-                <div style={{fontSize:10,color:"#555",marginTop:8}}>Reserve contributions are refunded in full at end of cycle.</div>
-              </div>
-            )}
-
-            {reserveContributions>0&&(
-              <div style={{background:"rgba(46,125,110,.08)",border:"1px solid rgba(46,125,110,.2)",borderRadius:12,padding:"12px 18px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontSize:12,fontWeight:600,color:"#2e7d6e"}}>🏦 Reserve Balance</div>
-                  <div style={{fontSize:10,color:"#555",marginTop:3}}>Returned to you at end of cycle</div>
-                </div>
-                <div style={{fontSize:20,fontWeight:700,color:"#2e7d6e"}}>${reserveContributions.toLocaleString()}</div>
-              </div>
-            )}
-
-            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
-              <div style={{fontSize:11,color:"#555",marginBottom:14}}>Weekly Contributions</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                {WEEKS.map(w=>{
-                  const p=payments[w.n],d=w.n<=cw,cur=w.n===cw;
-                  const lf=lateFees.find(f=>f.member_id===member.id&&f.week_num===w.n&&!f.paid);
-                  const isLate=!!lf;
-                  return<div key={w.n} title={`Week ${w.n} · ${w.date}${isLate?" · MISSED":""}`}
-                    style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",
-                      border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(201,123,46,.5)":p?"rgba(46,125,110,.4)":d?"rgba(168,50,50,.35)":"#2a2a2a"}`,
-                      background:isLate?"rgba(201,123,46,.15)":p?"rgba(46,125,110,.2)":d?"rgba(168,50,50,.18)":"#161616",
-                      color:isLate?"#c97b2e":p?"#2e7d6e":d?"#a83232":"#333"}}>
-                    {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#c97b2e"}}/>}
-                  </div>;
-                })}
-              </div>
-              <div style={{display:"flex",gap:14,marginTop:12,fontSize:10,color:"#555",flexWrap:"wrap"}}>
-                <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
-                <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
-                <span><span style={{color:"#c97b2e"}}>■</span> Missed</span>
-                <span><span style={{color:"#333"}}>■</span> Upcoming</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {subTab==="draw"&&(
-          <div>
-            {drawWeek?(
-              <div style={{background:"#1c1c1c",border:"1px solid rgba(201,123,46,.3)",borderRadius:16,padding:28,textAlign:"center"}}>
-                <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".6px",marginBottom:16}}>Your Draw Info</div>
-                <div style={{fontSize:48,marginBottom:16}}>💰</div>
-                <div style={{fontSize:32,fontWeight:700,color:"#c97b2e",marginBottom:8}}>${(finalDraw+reserveContributions).toLocaleString()}</div>
-                <div style={{fontSize:11,color:"#555",marginBottom:20,lineHeight:1.8}}>
-                  Base: ${baseDraw.toLocaleString()} ({numHands} hand{numHands>1?"s":""})<br/>
-                  {totalExtra>0&&<>Extra Capital: +${totalExtra.toLocaleString()} (${extraPerHand.toLocaleString()} per hand)<br/></>}
-                  {reserveContributions>0&&<span style={{color:"#2e7d6e"}}>Reserve Refund: +${reserveContributions}<br/></span>}
-                  {donationAmt>0&&<>Donation: −${donationAmt}<br/></>}
-                </div>
-                <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
-                  <div style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:12,padding:"16px 24px",minWidth:130}}>
-                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>💳 Deposit Due</div>
-                    <div style={{fontSize:18,fontWeight:700}}>{drawWeek.date}</div>
-                    <div style={{fontSize:10,color:"#555",marginTop:4}}>Friday · Week {drawWeek.n}</div>
-                  </div>
-                  <div style={{background:"#161616",border:"1px solid rgba(201,123,46,.25)",borderRadius:12,padding:"16px 24px",minWidth:130}}>
-                    <div style={{fontSize:10,color:"#c97b2e",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>💰 Draw Date</div>
-                    <div style={{fontSize:18,fontWeight:700,color:"#c97b2e"}}>{drawWeek.drawDate}</div>
-                    <div style={{fontSize:10,color:"#555",marginTop:4}}>Saturday · Week {drawWeek.n}</div>
-                  </div>
-                </div>
-              </div>
-            ):(
-              <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:16,padding:40,textAlign:"center"}}>
-                <div style={{fontSize:32,marginBottom:12}}>📋</div>
-                <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>Hand Not Yet Assigned</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {subTab==="capital"&&(
-          <div>
-            <div style={{background:"#1c1c1c",border:"1px solid rgba(123,63,140,.3)",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
-              <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Extra Capital Summary</div>
-              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-                {[["Total Extra",`$${totalExtra.toLocaleString()}`,"#7B3F8C"],["Reserve",`$${reserveContributions.toLocaleString()}`,"#2e7d6e"],["Total Contributed",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Borrow Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"]].map(([l,v,c])=>(
-                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:16,fontWeight:700,color:c}}>{v}</div></div>
-                ))}
-              </div>
-              <div style={{fontSize:11,color:"#555"}}>Extra capital is logged by admin. Reserve contributions are added automatically when a payment is missed and refunded at end of cycle.</div>
-            </div>
-            {myExtra.length>0?(
-              <div>
-                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Capital History</div>
-                {myExtra.map(e=>(
-                  <div key={e.id} style={{background:"#1c1c1c",border:`1px solid ${e.note==="reserve_contribution"?"rgba(46,125,110,.2)":"rgba(123,63,140,.2)"}`,borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600,color:e.note==="reserve_contribution"?"#2e7d6e":"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div>
-                      <div style={{fontSize:10,color:"#555",marginTop:3}}>
-                        {e.note==="reserve_contribution"?"🏦 Reserve contribution (refunded end of cycle)":`Week ${e.week_num} · ${e.logged_on}${e.note&&e.note!=="reserve_contribution"?` · ${e.note}`:""}`}
-                      </div>
-                    </div>
-                    {e.note==="reserve_contribution"&&<span style={{fontSize:9,color:"#2e7d6e",background:"rgba(46,125,110,.1)",padding:"2px 6px",borderRadius:8}}>refundable</span>}
-                  </div>
-                ))}
-              </div>
-            ):<div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:24,textAlign:"center"}}><div style={{fontSize:12,color:"#444"}}>No extra capital contributions yet.</div></div>}
-          </div>
-        )}
-
-        {subTab==="borrow"&&(
-          <div>
-            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:14}}>
-              <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Borrow Eligibility</div>
-              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                {[["Base Paid",`$${baseAmt.toLocaleString()}`,"#e8e0d4"],["Extra Capital",`$${(totalExtra-reserveContributions).toLocaleString()}`,"#7B3F8C"],["Total In",`$${totalContributed.toLocaleString()}`,"#c97b2e"],["Max Eligible",`$${eligibleBorrow.toLocaleString()}`,"#2e7d6e"],["Active Borrow",activeBorrow?`$${activeBorrow.amount}`:"None",activeBorrow?"#a83232":"#2e7d6e"]].map(([l,v,c])=>(
-                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:16,fontWeight:700,color:c}}>{v}</div></div>
-                ))}
-              </div>
-            </div>
-            {activeBorrow&&<div style={{background:"rgba(168,50,50,.1)",border:"1px solid rgba(168,50,50,.25)",borderRadius:12,padding:"14px 18px",marginBottom:14}}><div style={{fontSize:12,fontWeight:600,color:"#a83232",marginBottom:6}}>Active Borrow</div><div style={{fontSize:11,color:"#888"}}>Amount: ${activeBorrow.amount} · {activeBorrow.borrowed_on} · Unpaid</div></div>}
-            {pendingRequest&&<div style={{background:"rgba(201,123,46,.1)",border:"1px solid rgba(201,123,46,.25)",borderRadius:12,padding:"14px 18px",marginBottom:14}}><div style={{fontSize:12,fontWeight:600,color:"#c97b2e",marginBottom:6}}>⏳ Request Pending</div><div style={{fontSize:11,color:"#888"}}>Amount: ${pendingRequest.amount} · {pendingRequest.requested_on}</div></div>}
-            {!activeBorrow&&!pendingRequest&&(
-              <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
-                <div style={{fontSize:12,fontWeight:600,marginBottom:14}}>Request a Borrow</div>
-                <div style={{fontSize:11,color:"#555",marginBottom:6}}>Amount (min $100, max ${eligibleBorrow})</div>
-                <input type="number" value={borrowAmt} onChange={e=>setBorrowAmt(e.target.value)} placeholder="Enter amount" style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:10}}/>
-                <div style={{fontSize:11,color:"#555",marginBottom:6}}>Reason (optional)</div>
-                <textarea value={borrowReason} onChange={e=>setBorrowReason(e.target.value)} placeholder="Brief reason..." style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:10,minHeight:70,resize:"vertical"}}/>
-                {borrowMsg&&<div style={{fontSize:11,color:borrowMsg.includes("submitted")?"#2e7d6e":"#a83232",marginBottom:10}}>{borrowMsg}</div>}
-                <button onClick={submitBorrowRequest} disabled={borrowSaving} style={{width:"100%",background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,padding:"11px",color:"#c97b2e",fontSize:13,fontWeight:600}}>{borrowSaving?"Submitting...":"Submit Request"}</button>
-              </div>
-            )}
-            {myBorrows.length>0&&(
-              <div style={{marginTop:14}}>
-                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Borrow History</div>
-                {myBorrows.map(b=>(
-                  <div key={b.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div><div style={{fontSize:13,fontWeight:600}}>${b.amount}</div><div style={{fontSize:10,color:"#555",marginTop:3}}>{b.borrowed_on}</div></div>
-                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:b.repaid?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",color:b.repaid?"#2e7d6e":"#a83232",border:`1px solid ${b.repaid?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>{b.repaid?"Repaid":"Outstanding"}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {subTab==="donate"&&(
-          <div>
-            <div style={{background:"#1c1c1c",border:"1px solid rgba(46,125,110,.25)",borderRadius:16,padding:24,marginBottom:14,textAlign:"center"}}>
-              <div style={{fontSize:32,marginBottom:10}}>🤝</div>
-              <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Community Donation</div>
-              <div style={{fontSize:12,color:"#555",lineHeight:1.6}}>Completely voluntary. Deducted from your draw. Change anytime.</div>
-            </div>
-            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px"}}>
-              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-                {[["Base Draw",`$${baseDraw.toLocaleString()}`,"#e8e0d4"],["Donation",`$${donationAmt}`,"#2e7d6e"],["You Receive",`$${finalDraw.toLocaleString()}`,"#c97b2e"]].map(([l,v,c])=>(
-                  <div key={l} style={{background:"#161616",border:"1px solid #2a2a2a",borderRadius:10,padding:"12px 16px",flex:1,minWidth:90}}><div style={{fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:5}}>{l}</div><div style={{fontSize:18,fontWeight:700,color:c}}>{v}</div></div>
-                ))}
-              </div>
-              <div style={{fontSize:11,color:"#555",marginBottom:6}}>Donation amount (enter 0 to remove)</div>
-              <input type="number" value={donationInput} onChange={e=>setDonationInput(e.target.value)} placeholder="e.g. 100" style={{width:"100%",background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"10px 12px",fontSize:14,textAlign:"center",marginBottom:10}}/>
-              {donationMsg&&<div style={{fontSize:11,color:"#2e7d6e",marginBottom:10}}>{donationMsg}</div>}
-              <button onClick={saveDonation} disabled={donationSaving} style={{width:"100%",background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,padding:"11px",color:"#2e7d6e",fontSize:13,fontWeight:600}}>{donationSaving?"Saving...":"Save Donation"}</button>
-            </div>
-          </div>
-        )}
-
-        {subTab==="disclosure"&&<Disclosure/>}
-        {subTab==="pin"&&<ChangePinForm currentPin={member.pin} onSave={saveMemberPin} onCancel={()=>setSubTab("my")}/>}
-      </div>
-    </div>
-  );
+function MemberView({ member, payments, borrows, donations, borrowRequests, extraCapital, lateFees, cw, onLogout, onPinSaved, onDonationUpdate, onBorrowRequest, sessionToken }) {
+    const [subTab, setSubTab] = useState("my");
+    const [sessionRemaining, setSessionRemaining] = useState(SESSION_TIMEOUT / 1000);
+    useEffect(() => { const interval = setInterval(() => { const sess = validateSession(sessionToken); if (!sess) {
+        onLogout();
+        return;
+    } const remaining = Math.ceil((sess.expires - Date.now()) / 1000); setSessionRemaining(remaining); if (remaining <= 0)
+        onLogout(); }, 1000); return () => clearInterval(interval); }, [sessionToken]);
+    const handleActivity = useCallback(() => refreshSession(sessionToken), [sessionToken]);
+    const extendSession = () => setSessionRemaining(SESSION_TIMEOUT / 1000);
+    const idx = member.id - 1;
+    const numHands = member.hands || 1;
+    const paid = WEEKS.filter(w => w.n <= cw && payments[w.n]).length;
+    const due = Math.min(cw, NWEEKS);
+    const arr = due - paid;
+    const baseAmt = paid * 100;
+    const myExtra = extraCapital.filter(e => e.member_id === member.id);
+    const totalExtra = myExtra.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const reserveContributions = myExtra.filter(e => e.note === "reserve_contribution").reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const totalContributed = baseAmt + totalExtra;
+    const eligibleBorrow = Math.floor((totalContributed - reserveContributions) * 0.5);
+    const baseDraw = numHands * 3200;
+    const extraPerHand = numHands > 0 ? totalExtra / numHands : 0;
+    const drawWeek = member.hand ? WEEKS[member.hand - 1] : null;
+    const myLateWeeks = lateFees.filter(f => f.member_id === member.id && !f.paid);
+    const debtInfo = calcMissedDebt(myLateWeeks);
+    const myDonation = donations.find(d => d.member_id === member.id);
+    const donationAmt = myDonation ? parseFloat(myDonation.amount) : 0;
+    const finalDraw = baseDraw + totalExtra - donationAmt;
+    const myBorrows = borrows.filter(b => b.member_id === member.id);
+    const activeBorrow = myBorrows.find(b => !b.repaid);
+    const myRequests = borrowRequests.filter(r => r.member_id === member.id);
+    const pendingRequest = myRequests.find(r => r.status === "pending");
+    const [donationInput, setDonationInput] = useState(donationAmt > 0 ? String(donationAmt) : "");
+    const [donationSaving, setDonationSaving] = useState(false);
+    const [donationMsg, setDonationMsg] = useState("");
+    const [borrowAmt, setBorrowAmt] = useState("");
+    const [borrowReason, setBorrowReason] = useState("");
+    const [borrowMsg, setBorrowMsg] = useState("");
+    const [borrowSaving, setBorrowSaving] = useState(false);
+    const saveDonation = async () => { handleActivity(); setDonationSaving(true); const val = parseFloat(donationInput) || 0; await onDonationUpdate(member.id, val, myDonation === null || myDonation === void 0 ? void 0 : myDonation.id); setDonationMsg(val === 0 ? "Donation cleared." : "Donation saved!"); setDonationSaving(false); setTimeout(() => setDonationMsg(""), 3000); };
+    const submitBorrowRequest = async () => { handleActivity(); const amt2 = parseFloat(borrowAmt); if (!amt2 || amt2 < 100) {
+        setBorrowMsg("Minimum borrow is $100.");
+        return;
+    } if (amt2 > eligibleBorrow) {
+        setBorrowMsg(`Max eligible is $${eligibleBorrow}.`);
+        return;
+    } if (activeBorrow) {
+        setBorrowMsg("You have an active unpaid borrow.");
+        return;
+    } if (pendingRequest) {
+        setBorrowMsg("You already have a pending request.");
+        return;
+    } setBorrowSaving(true); await onBorrowRequest(member.id, amt2, borrowReason); setBorrowMsg("Request submitted! Admin will review shortly."); setBorrowAmt(""); setBorrowReason(""); setBorrowSaving(false); };
+    const saveMemberPin = async (newPin) => { await callApi('updateMemberPin', { id: member.id, pin: newPin }); onPinSaved(member.id, newPin); };
+    const tabs = ["my", "draw", "capital", "borrow", "donate", "disclosure", "pin"];
+    return (React.createElement("div", { style: { minHeight: "100vh", background: "#111" }, onClick: handleActivity, onKeyDown: handleActivity },
+        React.createElement(SessionWarning, { remaining: sessionRemaining, onExtend: extendSession }),
+        React.createElement("div", { style: { background: "#181818", borderBottom: "1px solid #2a2a2a", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                React.createElement(Av, { name: member.name, idx: idx }),
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: 15, fontWeight: 700 } }, member.name),
+                    React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 2 } },
+                        React.createElement(HBadge, { hand: member.hand }),
+                        numHands > 1 && React.createElement("span", { style: { marginLeft: 6, fontSize: 10, color: "#7B3F8C" } },
+                            numHands,
+                            " hands")))),
+            React.createElement("button", { onClick: onLogout, style: { background: "none", border: "1px solid #2a2a2a", borderRadius: 8, color: "#555", fontSize: 11, padding: "4px 10px" } }, "Logout")),
+        React.createElement("div", { style: { background: "#181818", borderBottom: "1px solid #2a2a2a", display: "flex", padding: "0 20px", overflowX: "auto" } }, tabs.map(t => (React.createElement("button", { key: t, onClick: () => { setSubTab(t); handleActivity(); }, style: { background: "none", border: "none", borderBottom: `2px solid ${subTab === t ? "#c97b2e" : "transparent"}`, color: subTab === t ? "#c97b2e" : "#555", fontSize: 12, padding: "12px 14px", whiteSpace: "nowrap" } }, t === "my" ? "My Payments" : t === "draw" ? "My Draw" : t === "capital" ? "Extra Capital" : t === "borrow" ? "Borrow" : t === "donate" ? "Donate" : t === "disclosure" ? "Disclosure" : "Change PIN")))),
+        React.createElement("div", { style: { padding: 20, maxWidth: 700, margin: "0 auto" } },
+            subTab === "my" && (React.createElement("div", null,
+                React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 } }, [["Base Paid", `$${baseAmt.toLocaleString()}`, "#e8e0d4"], ["Extra Capital", `$${totalExtra.toLocaleString()}`, "#7B3F8C"], ["Total In", `$${totalContributed.toLocaleString()}`, "#c97b2e"], ["Weeks", `${paid}/${due}`, arr > 0 ? "#a83232" : "#2e7d6e"], ["Status", arr > 0 ? `${arr} behind` : "Current", arr > 0 ? "#a83232" : "#2e7d6e"]].map(([l, v, c]) => (React.createElement("div", { key: l, style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, padding: "13px 16px", flex: 1, minWidth: 90 } },
+                    React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 5 } }, l),
+                    React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: c || "#e8e0d4" } }, v))))),
+                debtInfo.missedCount > 0 && (React.createElement("div", { style: { background: "rgba(201,123,46,.08)", border: "1px solid rgba(201,123,46,.25)", borderRadius: 12, padding: "16px 18px", marginBottom: 14 } },
+                    React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: "#c97b2e", marginBottom: 10 } }, "\uD83D\uDCCB Next Week Payment Breakdown"),
+                    React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 2 } },
+                        myLateWeeks.map(f => (React.createElement("div", { key: f.id, style: { display: "flex", justifyContent: "space-between" } },
+                            React.createElement("span", null,
+                                "Week ",
+                                f.week_num,
+                                " missed payment"),
+                            React.createElement("span", { style: { color: "#e8e0d4" } }, "$100")))),
+                        myLateWeeks.map(f => (React.createElement("div", { key: `r${f.id}`, style: { display: "flex", justifyContent: "space-between" } },
+                            React.createElement("span", null,
+                                "Week ",
+                                f.week_num,
+                                " reserve contribution"),
+                            React.createElement("span", { style: { color: "#2e7d6e" } },
+                                "$25 ",
+                                React.createElement("span", { style: { fontSize: 9, color: "#555" } }, "(refunded end of cycle)"))))),
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } },
+                            React.createElement("span", null, "Current week"),
+                            React.createElement("span", { style: { color: "#e8e0d4" } }, "$100")),
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(201,123,46,.2)", paddingTop: 8, marginTop: 4 } },
+                            React.createElement("span", { style: { fontWeight: 600, color: "#c97b2e" } }, "Next week total"),
+                            React.createElement("span", { style: { fontWeight: 600, color: "#c97b2e" } },
+                                "$",
+                                debtInfo.totalOwed))),
+                    React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 8 } }, "Reserve contributions are refunded in full at end of cycle."))),
+                reserveContributions > 0 && (React.createElement("div", { style: { background: "rgba(46,125,110,.08)", border: "1px solid rgba(46,125,110,.2)", borderRadius: 12, padding: "12px 18px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                    React.createElement("div", null,
+                        React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: "#2e7d6e" } }, "\uD83C\uDFE6 Reserve Balance"),
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 3 } }, "Returned to you at end of cycle")),
+                    React.createElement("div", { style: { fontSize: 20, fontWeight: 700, color: "#2e7d6e" } },
+                        "$",
+                        reserveContributions.toLocaleString()))),
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, padding: "18px 20px" } },
+                    React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 14 } }, "Weekly Contributions"),
+                    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } }, WEEKS.map(w => {
+                        const p = payments[w.n], d = w.n <= cw, cur = w.n === cw;
+                        const lf = lateFees.find(f => f.member_id === member.id && f.week_num === w.n && !f.paid);
+                        const isLate = !!lf;
+                        return React.createElement("div", { key: w.n, title: `Week ${w.n} · ${w.date}${isLate ? " · MISSED" : ""}`, style: { width: 34, height: 34, borderRadius: 8, fontSize: 10, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
+                                border: `1.5px solid ${cur ? "rgba(201,123,46,.6)" : isLate ? "rgba(201,123,46,.5)" : p ? "rgba(46,125,110,.4)" : d ? "rgba(168,50,50,.35)" : "#2a2a2a"}`,
+                                background: isLate ? "rgba(201,123,46,.15)" : p ? "rgba(46,125,110,.2)" : d ? "rgba(168,50,50,.18)" : "#161616",
+                                color: isLate ? "#c97b2e" : p ? "#2e7d6e" : d ? "#a83232" : "#333" } },
+                            w.n,
+                            isLate && React.createElement("div", { style: { position: "absolute", top: -3, right: -3, width: 6, height: 6, borderRadius: "50%", background: "#c97b2e" } }));
+                    })),
+                    React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 12, fontSize: 10, color: "#555", flexWrap: "wrap" } },
+                        React.createElement("span", null,
+                            React.createElement("span", { style: { color: "#2e7d6e" } }, "\u25A0"),
+                            " Paid"),
+                        React.createElement("span", null,
+                            React.createElement("span", { style: { color: "#a83232" } }, "\u25A0"),
+                            " Unpaid"),
+                        React.createElement("span", null,
+                            React.createElement("span", { style: { color: "#c97b2e" } }, "\u25A0"),
+                            " Missed"),
+                        React.createElement("span", null,
+                            React.createElement("span", { style: { color: "#333" } }, "\u25A0"),
+                            " Upcoming"))))),
+            subTab === "draw" && (React.createElement("div", null, drawWeek ? (React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid rgba(201,123,46,.3)", borderRadius: 16, padding: 28, textAlign: "center" } },
+                React.createElement("div", { style: { fontSize: 11, color: "#555", textTransform: "uppercase", letterSpacing: ".6px", marginBottom: 16 } }, "Your Draw Info"),
+                React.createElement("div", { style: { fontSize: 48, marginBottom: 16 } }, "\uD83D\uDCB0"),
+                React.createElement("div", { style: { fontSize: 32, fontWeight: 700, color: "#c97b2e", marginBottom: 8 } },
+                    "$",
+                    (finalDraw + reserveContributions).toLocaleString()),
+                React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 20, lineHeight: 1.8 } },
+                    "Base: $",
+                    baseDraw.toLocaleString(),
+                    " (",
+                    numHands,
+                    " hand",
+                    numHands > 1 ? "s" : "",
+                    ")",
+                    React.createElement("br", null),
+                    totalExtra > 0 && React.createElement(React.Fragment, null,
+                        "Extra Capital: +$",
+                        totalExtra.toLocaleString(),
+                        " ($",
+                        extraPerHand.toLocaleString(),
+                        " per hand)",
+                        React.createElement("br", null)),
+                    reserveContributions > 0 && React.createElement("span", { style: { color: "#2e7d6e" } },
+                        "Reserve Refund: +$",
+                        reserveContributions,
+                        React.createElement("br", null)),
+                    donationAmt > 0 && React.createElement(React.Fragment, null,
+                        "Donation: \u2212$",
+                        donationAmt,
+                        React.createElement("br", null))),
+                React.createElement("div", { style: { display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" } },
+                    React.createElement("div", { style: { background: "#161616", border: "1px solid #2a2a2a", borderRadius: 12, padding: "16px 24px", minWidth: 130 } },
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 8 } }, "\uD83D\uDCB3 Deposit Due"),
+                        React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, drawWeek.date),
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 4 } },
+                            "Friday \u00B7 Week ",
+                            drawWeek.n)),
+                    React.createElement("div", { style: { background: "#161616", border: "1px solid rgba(201,123,46,.25)", borderRadius: 12, padding: "16px 24px", minWidth: 130 } },
+                        React.createElement("div", { style: { fontSize: 10, color: "#c97b2e", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 8 } }, "\uD83D\uDCB0 Draw Date"),
+                        React.createElement("div", { style: { fontSize: 18, fontWeight: 700, color: "#c97b2e" } }, drawWeek.drawDate),
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 4 } },
+                            "Saturday \u00B7 Week ",
+                            drawWeek.n))))) : (React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 16, padding: 40, textAlign: "center" } },
+                React.createElement("div", { style: { fontSize: 32, marginBottom: 12 } }, "\uD83D\uDCCB"),
+                React.createElement("div", { style: { fontSize: 15, fontWeight: 600, marginBottom: 8 } }, "Hand Not Yet Assigned"))))),
+            subTab === "capital" && (React.createElement("div", null,
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid rgba(123,63,140,.3)", borderRadius: 14, padding: "18px 20px", marginBottom: 14 } },
+                    React.createElement("div", { style: { fontSize: 11, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 14 } }, "Extra Capital Summary"),
+                    React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 } }, [["Total Extra", `$${totalExtra.toLocaleString()}`, "#7B3F8C"], ["Reserve", `$${reserveContributions.toLocaleString()}`, "#2e7d6e"], ["Total Contributed", `$${totalContributed.toLocaleString()}`, "#c97b2e"], ["Borrow Eligible", `$${eligibleBorrow.toLocaleString()}`, "#2e7d6e"]].map(([l, v, c]) => (React.createElement("div", { key: l, style: { background: "#161616", border: "1px solid #2a2a2a", borderRadius: 10, padding: "12px 16px", flex: 1, minWidth: 90 } },
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", marginBottom: 5 } }, l),
+                        React.createElement("div", { style: { fontSize: 16, fontWeight: 700, color: c } }, v))))),
+                    React.createElement("div", { style: { fontSize: 11, color: "#555" } }, "Extra capital is logged by admin. Reserve contributions are added automatically when a payment is missed and refunded at end of cycle.")),
+                myExtra.length > 0 ? (React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 } }, "Capital History"),
+                    myExtra.map(e => (React.createElement("div", { key: e.id, style: { background: "#1c1c1c", border: `1px solid ${e.note === "reserve_contribution" ? "rgba(46,125,110,.2)" : "rgba(123,63,140,.2)"}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                        React.createElement("div", null,
+                            React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: e.note === "reserve_contribution" ? "#2e7d6e" : "#7B3F8C" } },
+                                "+$",
+                                parseFloat(e.amount).toLocaleString()),
+                            React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 3 } }, e.note === "reserve_contribution" ? "🏦 Reserve contribution (refunded end of cycle)" : `Week ${e.week_num} · ${e.logged_on}${e.note && e.note !== "reserve_contribution" ? ` · ${e.note}` : ""}`)),
+                        e.note === "reserve_contribution" && React.createElement("span", { style: { fontSize: 9, color: "#2e7d6e", background: "rgba(46,125,110,.1)", padding: "2px 6px", borderRadius: 8 } }, "refundable")))))) : React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, padding: 24, textAlign: "center" } },
+                    React.createElement("div", { style: { fontSize: 12, color: "#444" } }, "No extra capital contributions yet.")))),
+            subTab === "borrow" && (React.createElement("div", null,
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, padding: "18px 20px", marginBottom: 14 } },
+                    React.createElement("div", { style: { fontSize: 11, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 14 } }, "Borrow Eligibility"),
+                    React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } }, [["Base Paid", `$${baseAmt.toLocaleString()}`, "#e8e0d4"], ["Extra Capital", `$${(totalExtra - reserveContributions).toLocaleString()}`, "#7B3F8C"], ["Total In", `$${totalContributed.toLocaleString()}`, "#c97b2e"], ["Max Eligible", `$${eligibleBorrow.toLocaleString()}`, "#2e7d6e"], ["Active Borrow", activeBorrow ? `$${activeBorrow.amount}` : "None", activeBorrow ? "#a83232" : "#2e7d6e"]].map(([l, v, c]) => (React.createElement("div", { key: l, style: { background: "#161616", border: "1px solid #2a2a2a", borderRadius: 10, padding: "12px 16px", flex: 1, minWidth: 90 } },
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", marginBottom: 5 } }, l),
+                        React.createElement("div", { style: { fontSize: 16, fontWeight: 700, color: c } }, v)))))),
+                activeBorrow && React.createElement("div", { style: { background: "rgba(168,50,50,.1)", border: "1px solid rgba(168,50,50,.25)", borderRadius: 12, padding: "14px 18px", marginBottom: 14 } },
+                    React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: "#a83232", marginBottom: 6 } }, "Active Borrow"),
+                    React.createElement("div", { style: { fontSize: 11, color: "#888" } },
+                        "Amount: $",
+                        activeBorrow.amount,
+                        " \u00B7 ",
+                        activeBorrow.borrowed_on,
+                        " \u00B7 Unpaid")),
+                pendingRequest && React.createElement("div", { style: { background: "rgba(201,123,46,.1)", border: "1px solid rgba(201,123,46,.25)", borderRadius: 12, padding: "14px 18px", marginBottom: 14 } },
+                    React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: "#c97b2e", marginBottom: 6 } }, "\u23F3 Request Pending"),
+                    React.createElement("div", { style: { fontSize: 11, color: "#888" } },
+                        "Amount: $",
+                        pendingRequest.amount,
+                        " \u00B7 ",
+                        pendingRequest.requested_on)),
+                !activeBorrow && !pendingRequest && (React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, padding: "18px 20px" } },
+                    React.createElement("div", { style: { fontSize: 12, fontWeight: 600, marginBottom: 14 } }, "Request a Borrow"),
+                    React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 6 } },
+                        "Amount (min $100, max $",
+                        eligibleBorrow,
+                        ")"),
+                    React.createElement("input", { type: "number", value: borrowAmt, onChange: e => setBorrowAmt(e.target.value), placeholder: "Enter amount", style: { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 10 } }),
+                    React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 6 } }, "Reason (optional)"),
+                    React.createElement("textarea", { value: borrowReason, onChange: e => setBorrowReason(e.target.value), placeholder: "Brief reason...", style: { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 10, minHeight: 70, resize: "vertical" } }),
+                    borrowMsg && React.createElement("div", { style: { fontSize: 11, color: borrowMsg.includes("submitted") ? "#2e7d6e" : "#a83232", marginBottom: 10 } }, borrowMsg),
+                    React.createElement("button", { onClick: submitBorrowRequest, disabled: borrowSaving, style: { width: "100%", background: "rgba(201,123,46,.2)", border: "1px solid rgba(201,123,46,.4)", borderRadius: 8, padding: "11px", color: "#c97b2e", fontSize: 13, fontWeight: 600 } }, borrowSaving ? "Submitting..." : "Submit Request"))),
+                myBorrows.length > 0 && (React.createElement("div", { style: { marginTop: 14 } },
+                    React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 } }, "Borrow History"),
+                    myBorrows.map(b => (React.createElement("div", { key: b.id, style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                        React.createElement("div", null,
+                            React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } },
+                                "$",
+                                b.amount),
+                            React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 3 } }, b.borrowed_on)),
+                        React.createElement("span", { style: { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: b.repaid ? "rgba(46,125,110,.15)" : "rgba(168,50,50,.15)", color: b.repaid ? "#2e7d6e" : "#a83232", border: `1px solid ${b.repaid ? "rgba(46,125,110,.3)" : "rgba(168,50,50,.3)"}` } }, b.repaid ? "Repaid" : "Outstanding")))))))),
+            subTab === "donate" && (React.createElement("div", null,
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid rgba(46,125,110,.25)", borderRadius: 16, padding: 24, marginBottom: 14, textAlign: "center" } },
+                    React.createElement("div", { style: { fontSize: 32, marginBottom: 10 } }, "\uD83E\uDD1D"),
+                    React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 8 } }, "Community Donation"),
+                    React.createElement("div", { style: { fontSize: 12, color: "#555", lineHeight: 1.6 } }, "Completely voluntary. Deducted from your draw. Change anytime.")),
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, padding: "18px 20px" } },
+                    React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 } }, [["Base Draw", `$${baseDraw.toLocaleString()}`, "#e8e0d4"], ["Donation", `$${donationAmt}`, "#2e7d6e"], ["You Receive", `$${finalDraw.toLocaleString()}`, "#c97b2e"]].map(([l, v, c]) => (React.createElement("div", { key: l, style: { background: "#161616", border: "1px solid #2a2a2a", borderRadius: 10, padding: "12px 16px", flex: 1, minWidth: 90 } },
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", marginBottom: 5 } }, l),
+                        React.createElement("div", { style: { fontSize: 18, fontWeight: 700, color: c } }, v))))),
+                    React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 6 } }, "Donation amount (enter 0 to remove)"),
+                    React.createElement("input", { type: "number", value: donationInput, onChange: e => setDonationInput(e.target.value), placeholder: "e.g. 100", style: { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "10px 12px", fontSize: 14, textAlign: "center", marginBottom: 10 } }),
+                    donationMsg && React.createElement("div", { style: { fontSize: 11, color: "#2e7d6e", marginBottom: 10 } }, donationMsg),
+                    React.createElement("button", { onClick: saveDonation, disabled: donationSaving, style: { width: "100%", background: "rgba(46,125,110,.2)", border: "1px solid rgba(46,125,110,.4)", borderRadius: 8, padding: "11px", color: "#2e7d6e", fontSize: 13, fontWeight: 600 } }, donationSaving ? "Saving..." : "Save Donation")))),
+            subTab === "disclosure" && React.createElement(Disclosure, null),
+            subTab === "pin" && React.createElement(ChangePinForm, { currentPin: member.pin, onSave: saveMemberPin, onCancel: () => setSubTab("my") }))));
 }
-
-function AdminView({members,allPayments,setAllPayments,borrows,setBorrows,donations,borrowRequests,setBorrowRequests,extraCapital,setExtraCapital,lateFees,setLateFees,cw,onLogout,adminPin,onAdminPinSaved,onMemberPinReset,sessionToken}){
-  const[tab,setTab]=useState("overview");
-  const[fmem,setFmem]=useState(null);
-  const[borrowForm,setBorrowForm]=useState({});
-  const[borrowMsg,setBorrowMsg]=useState({});
-  const[sessionRemaining,setSessionRemaining]=useState(SESSION_TIMEOUT/1000);
-  const[extraForm,setExtraForm]=useState({});
-  const[extraMsg,setExtraMsg]=useState({});
-
-  useEffect(()=>{const interval=setInterval(()=>{const sess=validateSession(sessionToken);if(!sess){onLogout();return;}const remaining=Math.ceil((sess.expires-Date.now())/1000);setSessionRemaining(remaining);if(remaining<=0)onLogout();},1000);return()=>clearInterval(interval);},[sessionToken]);
-  const handleActivity=useCallback(()=>refreshSession(sessionToken),[sessionToken]);
-  const extendSession=()=>setSessionRemaining(SESSION_TIMEOUT/1000);
-
-  const stats=members.map((m,i)=>{
-    const mp=allPayments[m.id]||{};
-    const paid=WEEKS.filter(w=>w.n<=cw&&mp[w.n]).length;
-    const due=Math.min(cw,NWEEKS);
-    const numHands=m.hands||1;
-    const myExtra=extraCapital.filter(e=>e.member_id===m.id);
-    const totalExtra=myExtra.reduce((s,e)=>s+parseFloat(e.amount||0),0);
-    const reserveContributions=myExtra.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
-    const totalContributed=paid*100+totalExtra;
-    const myBorrows=borrows.filter(b=>b.member_id===m.id);
-    const activeBorrow=myBorrows.find(b=>!b.repaid);
-    const myDonation=donations.find(d=>d.member_id===m.id);
-    const donationAmt=myDonation?parseFloat(myDonation.amount):0;
-    const myLateWeeks=lateFees.filter(f=>f.member_id===m.id&&!f.paid);
-    const debtInfo=calcMissedDebt(myLateWeeks);
-    const baseDraw=numHands*3200;
-    const finalDraw=baseDraw+totalExtra-donationAmt;
-    return{...m,idx:i,paid,due,arr:due-paid,amt:paid*100,numHands,totalExtra,reserveContributions,totalContributed,eligibleBorrow:Math.floor((totalContributed-reserveContributions)*0.5),activeBorrow,donationAmt,myBorrows,myExtra,myLateWeeks,debtInfo,finalDraw,baseDraw};
-  });
-
-  const totCol=stats.reduce((s,m)=>s+m.amt,0);
-  const totArr=stats.reduce((s,m)=>s+m.arr,0);
-  const health=Math.round((stats.reduce((s,m)=>s+m.paid,0)/(members.length*cw))*100);
-  const totDonations=donations.reduce((s,d)=>s+parseFloat(d.amount||0),0);
-  const totExtra=extraCapital.filter(e=>e.note!=="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
-  const totReserve=extraCapital.filter(e=>e.note==="reserve_contribution").reduce((s,e)=>s+parseFloat(e.amount||0),0);
-  const potMap={};members.forEach(m=>{if(m.hand)potMap[m.hand]=m;});
-  const pendingRequests=borrowRequests.filter(r=>r.status==="pending");
-
-  const toggle=async(mid,wn)=>{
-    handleActivity();
-    const cur=allPayments[mid]?.[wn]||false;
-    setAllPayments(p=>({...p,[mid]:{...p[mid],[wn]:!cur}}));
-    await callApi('togglePayment',{memberId:mid,weekNum:wn,paid:!cur});
-  };
-
-  const toggleLate=async(mid,wn,isCurrentlyLate)=>{
-    handleActivity();
-    if(isCurrentlyLate){
-      const fee=lateFees.find(f=>f.member_id===mid&&f.week_num===wn&&!f.paid);
-      if(fee){
-        await callApi('resolveLateFee',{feeId:fee.id});
-        setLateFees(prev=>prev.map(f=>f.id===fee.id?{...f,paid:true}:f));
-      }
-      const reserveEntry=extraCapital.find(e=>e.member_id===mid&&e.week_num===wn&&e.note==="reserve_contribution");
-      if(reserveEntry){
-        await callApi('removeReserveContribution',{entryId:reserveEntry.id});
-        setExtraCapital(prev=>prev.filter(e=>e.id!==reserveEntry.id));
-      }
-    } else {
-      const week=WEEKS.find(w=>w.n===wn);
-      const lateStart=week?week.lateStart.toISOString():new Date().toISOString();
-      const{lateData,extraData}=await callApi('insertLateFee',{memberId:mid,weekNum:wn,lateDate:lateStart});
-      if(lateData)setLateFees(prev=>[...prev,lateData]);
-      if(extraData)setExtraCapital(prev=>[...prev,extraData]);
+function AdminView({ members, allPayments, setAllPayments, borrows, setBorrows, donations, borrowRequests, setBorrowRequests, extraCapital, setExtraCapital, lateFees, setLateFees, cw, onLogout, adminPin, onAdminPinSaved, onMemberPinReset, sessionToken }) {
+    const [tab, setTab] = useState("overview");
+    const [fmem, setFmem] = useState(null);
+    const [borrowForm, setBorrowForm] = useState({});
+    const [borrowMsg, setBorrowMsg] = useState({});
+    const [sessionRemaining, setSessionRemaining] = useState(SESSION_TIMEOUT / 1000);
+    const [extraForm, setExtraForm] = useState({});
+    const [extraMsg, setExtraMsg] = useState({});
+    useEffect(() => { const interval = setInterval(() => { const sess = validateSession(sessionToken); if (!sess) {
+        onLogout();
+        return;
+    } const remaining = Math.ceil((sess.expires - Date.now()) / 1000); setSessionRemaining(remaining); if (remaining <= 0)
+        onLogout(); }, 1000); return () => clearInterval(interval); }, [sessionToken]);
+    const handleActivity = useCallback(() => refreshSession(sessionToken), [sessionToken]);
+    const extendSession = () => setSessionRemaining(SESSION_TIMEOUT / 1000);
+    const stats = members.map((m, i) => {
+        const mp = allPayments[m.id] || {};
+        const paid = WEEKS.filter(w => w.n <= cw && mp[w.n]).length;
+        const due = Math.min(cw, NWEEKS);
+        const numHands = m.hands || 1;
+        const myExtra = extraCapital.filter(e => e.member_id === m.id);
+        const totalExtra = myExtra.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+        const reserveContributions = myExtra.filter(e => e.note === "reserve_contribution").reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+        const totalContributed = paid * 100 + totalExtra;
+        const myBorrows = borrows.filter(b => b.member_id === m.id);
+        const activeBorrow = myBorrows.find(b => !b.repaid);
+        const myDonation = donations.find(d => d.member_id === m.id);
+        const donationAmt = myDonation ? parseFloat(myDonation.amount) : 0;
+        const myLateWeeks = lateFees.filter(f => f.member_id === m.id && !f.paid);
+        const debtInfo = calcMissedDebt(myLateWeeks);
+        const baseDraw = numHands * 3200;
+        const finalDraw = baseDraw + totalExtra - donationAmt;
+        return { ...m, idx: i, paid, due, arr: due - paid, amt: paid * 100, numHands, totalExtra, reserveContributions, totalContributed, eligibleBorrow: Math.floor((totalContributed - reserveContributions) * 0.5), activeBorrow, donationAmt, myBorrows, myExtra, myLateWeeks, debtInfo, finalDraw, baseDraw };
+    });
+    const totCol = stats.reduce((s, m) => s + m.amt, 0);
+    const totArr = stats.reduce((s, m) => s + m.arr, 0);
+    const health = Math.round((stats.reduce((s, m) => s + m.paid, 0) / (members.length * cw)) * 100);
+    const totDonations = donations.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
+    const totExtra = extraCapital.filter(e => e.note !== "reserve_contribution").reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const totReserve = extraCapital.filter(e => e.note === "reserve_contribution").reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const potMap = {};
+    members.forEach(m => { if (m.hand)
+        potMap[m.hand] = m; });
+    const pendingRequests = borrowRequests.filter(r => r.status === "pending");
+    const toggle = async (mid, wn) => {
+        var _a;
+        handleActivity();
+        const cur = ((_a = allPayments[mid]) === null || _a === void 0 ? void 0 : _a[wn]) || false;
+        setAllPayments(p => ({ ...p, [mid]: { ...p[mid], [wn]: !cur } }));
+        await callApi('togglePayment', { memberId: mid, weekNum: wn, paid: !cur });
+    };
+    const toggleLate = async (mid, wn, isCurrentlyLate) => {
+        handleActivity();
+        if (isCurrentlyLate) {
+            const fee = lateFees.find(f => f.member_id === mid && f.week_num === wn && !f.paid);
+            if (fee) {
+                await callApi('resolveLateFee', { feeId: fee.id });
+                setLateFees(prev => prev.map(f => f.id === fee.id ? { ...f, paid: true } : f));
+            }
+            const reserveEntry = extraCapital.find(e => e.member_id === mid && e.week_num === wn && e.note === "reserve_contribution");
+            if (reserveEntry) {
+                await callApi('removeReserveContribution', { entryId: reserveEntry.id });
+                setExtraCapital(prev => prev.filter(e => e.id !== reserveEntry.id));
+            }
+        }
+        else {
+            const week = WEEKS.find(w => w.n === wn);
+            const lateStart = week ? week.lateStart.toISOString() : new Date().toISOString();
+            const { lateData, extraData } = await callApi('insertLateFee', { memberId: mid, weekNum: wn, lateDate: lateStart });
+            if (lateData)
+                setLateFees(prev => [...prev, lateData]);
+            if (extraData)
+                setExtraCapital(prev => [...prev, extraData]);
+        }
+    };
+    const logBorrow = async (mid) => {
+        handleActivity();
+        const amt = parseFloat(borrowForm[mid] || 0);
+        if (!amt || amt < 100) {
+            setBorrowMsg(p => ({ ...p, [mid]: "Min $100." }));
+            return;
+        }
+        const m = stats.find(s => s.id === mid);
+        if (amt > m.eligibleBorrow) {
+            setBorrowMsg(p => ({ ...p, [mid]: `Max $${m.eligibleBorrow}.` }));
+            return;
+        }
+        const { data } = await callApi('insertBorrow', { memberId: mid, amount: amt });
+        if (data) {
+            setBorrows(prev => [...prev, data]);
+            setBorrowForm(p => ({ ...p, [mid]: "" }));
+            setBorrowMsg(p => ({ ...p, [mid]: "Logged." }));
+            setTimeout(() => setBorrowMsg(p => ({ ...p, [mid]: "" })), 3000);
+        }
+    };
+    const logExtraCapital = async (mid) => {
+        var _a, _b, _c;
+        handleActivity();
+        const amt = parseFloat(((_a = extraForm[mid]) === null || _a === void 0 ? void 0 : _a.amount) || 0);
+        const note = ((_b = extraForm[mid]) === null || _b === void 0 ? void 0 : _b.note) || "";
+        const weekNum = parseInt(((_c = extraForm[mid]) === null || _c === void 0 ? void 0 : _c.week) || cw);
+        if (!amt || amt <= 0) {
+            setExtraMsg(p => ({ ...p, [mid]: "Enter valid amount." }));
+            return;
+        }
+        const { data } = await callApi('insertExtraCapital', { memberId: mid, weekNum, amount: amt, note });
+        if (data) {
+            setExtraCapital(prev => [...prev, data]);
+            setExtraForm(p => ({ ...p, [mid]: {} }));
+            setExtraMsg(p => ({ ...p, [mid]: "Extra capital logged." }));
+            setTimeout(() => setExtraMsg(p => ({ ...p, [mid]: "" })), 3000);
+        }
+    };
+    const toggleRepaid = async (borrowId, current) => {
+        handleActivity();
+        await callApi('updateBorrow', { id: borrowId, repaid: !current, repaidOn: !current ? new Date().toISOString().split("T")[0] : null });
+        setBorrows(prev => prev.map(b => b.id === borrowId ? { ...b, repaid: !current } : b));
+    };
+    const reviewRequest = async (reqId, approved, memberId, amount) => {
+        handleActivity();
+        const status = approved ? "approved" : "declined";
+        const res = await callApi('reviewRequest', { reqId, status, memberId, amount });
+        if (approved && res.data)
+            setBorrows(prev => [...prev, res.data]);
+        setBorrowRequests(prev => prev.map(r => r.id === reqId ? { ...r, status } : r));
+    };
+    const saveAdminPin = async (newPin) => { await callApi('updateAdminPin', { pin: newPin }); onAdminPinSaved(newPin); };
+    const resetMemberPin = async (id) => {
+        const defaults = ["1111", "2222", "3333", "4444", "5555", "6666", "7777", "8888", "9999", "0000"];
+        const defPin = defaults[id - 1];
+        await callApi('updateMemberPin', { id, pin: defPin });
+        onMemberPinReset(id, defPin);
+    };
+    const card = (label, val, sub, color) => (React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, padding: "14px 18px", flex: 1, minWidth: 120 } },
+        React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 5 } }, label),
+        React.createElement("div", { style: { fontSize: 22, fontWeight: 700, lineHeight: 1, color: color || "#e8e0d4" } }, val),
+        sub && React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 4 } }, sub)));
+    return (React.createElement("div", { style: { minHeight: "100vh", background: "#111" }, onClick: handleActivity, onKeyDown: handleActivity },
+        React.createElement(SessionWarning, { remaining: sessionRemaining, onExtend: extendSession }),
+        React.createElement("div", { style: { background: "#181818", borderBottom: "1px solid #2a2a2a", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
+            React.createElement("div", null,
+                React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } }, "\uD83D\uDCB0 3200 Pardna \u2014 Admin"),
+                React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 2 } }, "Jun 13 2025 \u2192 Jan 16 2026")),
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                pendingRequests.length > 0 && React.createElement("span", { style: { background: "rgba(168,50,50,.2)", color: "#a83232", border: "1px solid rgba(168,50,50,.3)", borderRadius: 20, padding: "4px 10px", fontSize: 11 } },
+                    "\u26A0\uFE0F ",
+                    pendingRequests.length),
+                React.createElement("span", { style: { background: "rgba(201,123,46,.15)", color: "#c97b2e", border: "1px solid rgba(201,123,46,.3)", borderRadius: 20, padding: "4px 12px", fontSize: 11 } },
+                    "Week ",
+                    cw),
+                React.createElement("button", { onClick: onLogout, style: { background: "none", border: "1px solid #2a2a2a", borderRadius: 8, color: "#555", fontSize: 11, padding: "4px 10px" } }, "Logout"))),
+        React.createElement("div", { style: { background: "#181818", borderBottom: "1px solid #2a2a2a", display: "flex", padding: "0 20px", overflowX: "auto" } }, ["overview", "payments", "capital", "borrows", "donations", "requests", "schedule", "members", "disclosure", "settings"].map(t => (React.createElement("button", { key: t, onClick: () => { setTab(t); handleActivity(); }, style: { background: "none", border: "none", borderBottom: `2px solid ${tab === t ? "#c97b2e" : "transparent"}`, color: tab === t ? "#c97b2e" : "#555", fontSize: 12, padding: "12px 14px", whiteSpace: "nowrap", textTransform: "capitalize", position: "relative" } },
+            t,
+            t === "requests" && pendingRequests.length > 0 && React.createElement("span", { style: { background: "#a83232", color: "#fff", borderRadius: "50%", fontSize: 9, padding: "1px 5px", marginLeft: 4 } }, pendingRequests.length))))),
+        React.createElement("div", { style: { padding: 20, maxWidth: 960, margin: "0 auto" } },
+            tab === "overview" && (React.createElement("div", null,
+                React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 } },
+                    card("Pot Size", "$3,200", null, "#c97b2e"),
+                    card("Collected", `$${totCol.toLocaleString()}`, `Week ${cw} of ${NWEEKS}`),
+                    card("Extra Capital", `$${totExtra.toLocaleString()}`, "voluntary", "#7B3F8C"),
+                    card("Reserve Pool", `$${totReserve.toLocaleString()}`, "held for refund", "#2e7d6e"),
+                    card("Health", `${health}%`, null, health >= 80 ? "#2e7d6e" : health >= 60 ? "#c97b2e" : "#a83232"),
+                    card("Arrears", totArr, "payments behind", totArr > 0 ? "#a83232" : "#2e7d6e"),
+                    card("Donations", `$${totDonations.toLocaleString()}`, "community fund", "#2e7d6e")),
+                pendingRequests.length > 0 && (React.createElement("div", { style: { background: "rgba(168,50,50,.08)", border: "1px solid rgba(168,50,50,.2)", borderRadius: 12, padding: "14px 18px", marginBottom: 20 } },
+                    React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: "#a83232", marginBottom: 10 } }, "\u26A0\uFE0F Pending Borrow Requests"),
+                    pendingRequests.map(r => { const m = members.find(x => x.id === r.member_id); return (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 } },
+                        React.createElement("div", { style: { fontSize: 12 } },
+                            React.createElement("span", { style: { fontWeight: 600 } }, m === null || m === void 0 ? void 0 : m.name),
+                            " \u00B7 $",
+                            r.amount,
+                            r.reason && ` · "${r.reason}"`),
+                        React.createElement("div", { style: { display: "flex", gap: 8 } },
+                            React.createElement("button", { onClick: () => reviewRequest(r.id, true, r.member_id, r.amount), style: { background: "rgba(46,125,110,.2)", border: "1px solid rgba(46,125,110,.4)", borderRadius: 8, color: "#2e7d6e", fontSize: 11, padding: "4px 12px" } }, "Approve"),
+                            React.createElement("button", { onClick: () => reviewRequest(r.id, false, r.member_id, r.amount), style: { background: "rgba(168,50,50,.15)", border: "1px solid rgba(168,50,50,.3)", borderRadius: 8, color: "#a83232", fontSize: 11, padding: "4px 12px" } }, "Decline")))); }))),
+                React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 } }, "Members"),
+                React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 10 } }, stats.map(m => (React.createElement("div", { key: m.id, onClick: () => { setFmem(m.id); setTab("payments"); handleActivity(); }, style: { background: "#1c1c1c", border: `1px solid ${m.myLateWeeks.length > 0 ? "rgba(201,123,46,.3)" : "#2a2a2a"}`, borderRadius: 12, padding: "13px 15px", display: "flex", alignItems: "center", gap: 11, cursor: "pointer" } },
+                    React.createElement(Av, { name: m.name, idx: m.idx }),
+                    React.createElement("div", { style: { flex: 1 } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 6, flexWrap: "wrap" } },
+                            React.createElement("span", { style: { fontSize: 13, fontWeight: 600 } }, m.name),
+                            React.createElement(HBadge, { hand: m.hand }),
+                            m.myLateWeeks.length > 0 && React.createElement("span", { style: { fontSize: 9, color: "#c97b2e", background: "rgba(201,123,46,.15)", padding: "1px 6px", borderRadius: 10 } },
+                                "MISSED ",
+                                m.myLateWeeks.length)),
+                        React.createElement("div", { style: { background: "#2a2a2a", borderRadius: 4, height: 4, overflow: "hidden" } },
+                            React.createElement("div", { style: { width: `${m.due > 0 ? (m.paid / m.due) * 100 : 0}%`, height: "100%", background: m.arr > 0 ? "#a83232" : "#2e7d6e", borderRadius: 4 } })),
+                        React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 4, display: "flex", justifyContent: "space-between" } },
+                            React.createElement("span", null,
+                                m.paid,
+                                "/",
+                                m.due,
+                                " \u00B7 ",
+                                m.myLateWeeks.length > 0 ? React.createElement("span", { style: { color: "#c97b2e" } },
+                                    "Next: $",
+                                    m.debtInfo.totalOwed) : React.createElement("span", null, "Next: $100")),
+                            React.createElement("span", { style: { color: m.arr > 0 ? "#a83232" : "#2e7d6e" } }, m.arr > 0 ? `${m.arr} behind` : "✓ current"))))))))),
+            tab === "payments" && (React.createElement("div", null,
+                React.createElement("div", { style: { fontSize: 11, color: "#555", marginBottom: 14 } }, "Tap tile = toggle paid \u00B7 Tap \"missed\" = mark payment missed (auto-adds $25 reserve to end-of-cycle refund only)"),
+                React.createElement("div", { style: { display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 16, alignItems: "center" } },
+                    React.createElement("span", { style: { fontSize: 11, color: "#555" } }, "Filter:"),
+                    React.createElement("button", { onClick: () => setFmem(null), style: { background: !fmem ? "rgba(201,123,46,.12)" : "none", border: `1px solid ${!fmem ? "rgba(201,123,46,.45)" : "#2a2a2a"}`, borderRadius: 20, color: !fmem ? "#c97b2e" : "#555", fontSize: 11, padding: "4px 11px" } }, "All"),
+                    stats.map(m => React.createElement("button", { key: m.id, onClick: () => setFmem(fmem === m.id ? null : m.id), style: { background: fmem === m.id ? "rgba(201,123,46,.12)" : "none", border: `1px solid ${fmem === m.id ? "rgba(201,123,46,.45)" : "#2a2a2a"}`, borderRadius: 20, color: fmem === m.id ? "#c97b2e" : "#555", fontSize: 11, padding: "4px 11px" } }, m.name))),
+                (fmem ? stats.filter(m => m.id === fmem) : stats).map(m => (React.createElement("div", { key: m.id, style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, padding: "18px 20px", marginBottom: 12 } },
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 11, marginBottom: 10 } },
+                        React.createElement(Av, { name: m.name, idx: m.idx }),
+                        React.createElement("div", null,
+                            React.createElement("div", { style: { fontSize: 14, fontWeight: 600, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+                                m.name,
+                                React.createElement(HBadge, { hand: m.hand }),
+                                m.numHands > 1 && React.createElement("span", { style: { fontSize: 10, color: "#7B3F8C" } },
+                                    m.numHands,
+                                    " hands")),
+                            React.createElement("div", { style: { fontSize: 11, color: "#555", marginTop: 3 } },
+                                m.paid,
+                                " paid \u00B7 ",
+                                React.createElement("span", { style: { color: m.arr > 0 ? "#a83232" : "#2e7d6e" } }, m.arr > 0 ? `${m.arr} behind` : "current"),
+                                " \u00B7 Extra: $",
+                                m.totalExtra.toLocaleString(),
+                                " \u00B7 Draw: $",
+                                m.finalDraw.toLocaleString()))),
+                    m.myLateWeeks.length > 0 && (React.createElement("div", { style: { background: "rgba(201,123,46,.08)", border: "1px solid rgba(201,123,46,.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 10, fontSize: 11 } },
+                        React.createElement("span", { style: { color: "#c97b2e", fontWeight: 600 } },
+                            "Next week owes: $",
+                            m.debtInfo.totalOwed),
+                        React.createElement("span", { style: { color: "#555", marginLeft: 8 } },
+                            "(",
+                            m.myLateWeeks.length,
+                            " missed \u00D7 $125 + $100 current)"),
+                        React.createElement("span", { style: { color: "#2e7d6e", marginLeft: 8 } },
+                            "Reserve: +$",
+                            m.debtInfo.reserveContributions,
+                            " \u2192 returned end of cycle only"))),
+                    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } }, WEEKS.map(w => {
+                        var _a;
+                        const paid = ((_a = allPayments[m.id]) === null || _a === void 0 ? void 0 : _a[w.n]) || false, due = w.n <= cw, cur = w.n === cw;
+                        const lf = lateFees.find(f => f.member_id === m.id && f.week_num === w.n && !f.paid);
+                        const isLate = !!lf;
+                        return (React.createElement("div", { key: w.n, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3 } },
+                            React.createElement("div", { title: `Week ${w.n} · ${w.date}${isLate ? " · MISSED" : ""}`, onClick: () => { if (due)
+                                    toggle(m.id, w.n); }, style: { width: 34, height: 34, borderRadius: 8, fontSize: 10, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
+                                    border: `1.5px solid ${cur ? "rgba(201,123,46,.6)" : isLate ? "rgba(201,123,46,.5)" : paid ? "rgba(46,125,110,.4)" : due ? "rgba(168,50,50,.35)" : "#2a2a2a"}`,
+                                    background: isLate ? "rgba(201,123,46,.15)" : paid ? "rgba(46,125,110,.2)" : due ? "rgba(168,50,50,.18)" : "#161616",
+                                    color: isLate ? "#c97b2e" : paid ? "#2e7d6e" : due ? "#a83232" : "#333", cursor: due ? "pointer" : "default" } },
+                                w.n,
+                                isLate && React.createElement("div", { style: { position: "absolute", top: -3, right: -3, width: 6, height: 6, borderRadius: "50%", background: "#c97b2e" } })),
+                            due && React.createElement("button", { onClick: () => toggleLate(m.id, w.n, isLate), style: { fontSize: 8, padding: "1px 4px", borderRadius: 4, background: isLate ? "rgba(201,123,46,.2)" : "rgba(255,255,255,.05)", border: `1px solid ${isLate ? "rgba(201,123,46,.4)" : "#2a2a2a"}`, color: isLate ? "#c97b2e" : "#444" } }, isLate ? "✓miss" : "miss")));
+                    })),
+                    React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 12, fontSize: 10, color: "#555", flexWrap: "wrap" } },
+                        React.createElement("span", null,
+                            React.createElement("span", { style: { color: "#2e7d6e" } }, "\u25A0"),
+                            " Paid"),
+                        React.createElement("span", null,
+                            React.createElement("span", { style: { color: "#a83232" } }, "\u25A0"),
+                            " Unpaid"),
+                        React.createElement("span", null,
+                            React.createElement("span", { style: { color: "#c97b2e" } }, "\u25A0"),
+                            " Missed"))))))),
+            tab === "capital" && (React.createElement("div", null,
+                React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 } },
+                    React.createElement("div", { style: { background: "rgba(123,63,140,.08)", border: "1px solid rgba(123,63,140,.2)", borderRadius: 12, padding: "12px 18px", flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, "\uD83D\uDC9C Voluntary Extra Capital"),
+                        React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#7B3F8C" } },
+                            "$",
+                            totExtra.toLocaleString())),
+                    React.createElement("div", { style: { background: "rgba(46,125,110,.08)", border: "1px solid rgba(46,125,110,.2)", borderRadius: 12, padding: "12px 18px", flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                        React.createElement("div", null,
+                            React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, "\uD83C\uDFE6 Reserve Pool"),
+                            React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 2 } }, "Refunded at end of cycle")),
+                        React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#2e7d6e" } },
+                            "$",
+                            totReserve.toLocaleString()))),
+                stats.map(m => {
+                    var _a, _b, _c;
+                    return (React.createElement("div", { key: m.id, style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, padding: "18px 20px", marginBottom: 12 } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 11, marginBottom: 14 } },
+                            React.createElement(Av, { name: m.name, idx: m.idx }),
+                            React.createElement("div", { style: { flex: 1 } },
+                                React.createElement("div", { style: { fontSize: 13, fontWeight: 600, marginBottom: 3 } }, m.name),
+                                React.createElement("div", { style: { fontSize: 11, color: "#555" } },
+                                    "Voluntary: ",
+                                    React.createElement("span", { style: { color: "#7B3F8C" } },
+                                        "$",
+                                        (m.totalExtra - m.reserveContributions).toLocaleString()),
+                                    " \u00B7 Reserve: ",
+                                    React.createElement("span", { style: { color: "#2e7d6e" } },
+                                        "$",
+                                        m.reserveContributions.toLocaleString()),
+                                    " \u00B7 Total in: ",
+                                    React.createElement("span", { style: { color: "#c97b2e" } },
+                                        "$",
+                                        m.totalContributed.toLocaleString()),
+                                    " \u00B7 Borrow eligible: ",
+                                    React.createElement("span", { style: { color: "#2e7d6e" } },
+                                        "$",
+                                        m.eligibleBorrow.toLocaleString())))),
+                        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
+                            React.createElement("input", { type: "number", placeholder: "Amount", value: ((_a = extraForm[m.id]) === null || _a === void 0 ? void 0 : _a.amount) || "", onChange: e => setExtraForm(p => ({ ...p, [m.id]: { ...p[m.id], amount: e.target.value } })), style: { flex: 1, minWidth: 100, background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "8px 12px", fontSize: 13 } }),
+                            React.createElement("select", { value: ((_b = extraForm[m.id]) === null || _b === void 0 ? void 0 : _b.week) || cw, onChange: e => setExtraForm(p => ({ ...p, [m.id]: { ...p[m.id], week: e.target.value } })), style: { background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#e8e0d4" } }, WEEKS.map(w => React.createElement("option", { key: w.n, value: w.n },
+                                "Wk ",
+                                w.n,
+                                " \u00B7 ",
+                                w.date))),
+                            React.createElement("input", { type: "text", placeholder: "Note (optional)", value: ((_c = extraForm[m.id]) === null || _c === void 0 ? void 0 : _c.note) || "", onChange: e => setExtraForm(p => ({ ...p, [m.id]: { ...p[m.id], note: e.target.value } })), style: { flex: 2, minWidth: 120, background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "8px 12px", fontSize: 13 } }),
+                            React.createElement("button", { onClick: () => logExtraCapital(m.id), style: { background: "rgba(123,63,140,.2)", border: "1px solid rgba(123,63,140,.4)", borderRadius: 8, color: "#7B3F8C", fontSize: 12, padding: "8px 14px" } }, "Log")),
+                        extraMsg[m.id] && React.createElement("div", { style: { fontSize: 11, color: "#7B3F8C", marginBottom: 8 } }, extraMsg[m.id]),
+                        m.myExtra.map(e => (React.createElement("div", { key: e.id, style: { display: "flex", alignItems: "center", justifyContent: "space-between", background: "#161616", borderRadius: 8, padding: "10px 14px", marginBottom: 6 } },
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: e.note === "reserve_contribution" ? "#2e7d6e" : "#7B3F8C" } },
+                                    "+$",
+                                    parseFloat(e.amount).toLocaleString()),
+                                React.createElement("div", { style: { fontSize: 10, color: "#555" } }, e.note === "reserve_contribution" ? `🏦 Reserve · Wk ${e.week_num}` : `Wk ${e.week_num} · ${e.logged_on}${e.note ? ` · ${e.note}` : ""}`)),
+                            e.note === "reserve_contribution" && React.createElement("span", { style: { fontSize: 9, color: "#2e7d6e", background: "rgba(46,125,110,.1)", padding: "2px 6px", borderRadius: 8 } }, "refundable"))))));
+                }))),
+            tab === "borrows" && (React.createElement("div", null, stats.map(m => (React.createElement("div", { key: m.id, style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, padding: "18px 20px", marginBottom: 12 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 11, marginBottom: 14 } },
+                    React.createElement(Av, { name: m.name, idx: m.idx }),
+                    React.createElement("div", { style: { flex: 1 } },
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, marginBottom: 3 } }, m.name),
+                        React.createElement("div", { style: { fontSize: 11, color: "#555" } },
+                            "Total in: $",
+                            m.totalContributed.toLocaleString(),
+                            " \u00B7 Eligible: ",
+                            React.createElement("span", { style: { color: "#c97b2e" } },
+                                "$",
+                                m.eligibleBorrow.toLocaleString()),
+                            " \u00B7 ",
+                            m.activeBorrow ? React.createElement("span", { style: { color: "#a83232" } },
+                                "Active: $",
+                                m.activeBorrow.amount) : React.createElement("span", { style: { color: "#2e7d6e" } }, "No active borrow")))),
+                React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
+                    React.createElement("input", { type: "number", placeholder: "Amount", value: borrowForm[m.id] || "", onChange: e => setBorrowForm(p => ({ ...p, [m.id]: e.target.value })), style: { flex: 1, background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "8px 12px", fontSize: 13 } }),
+                    React.createElement("button", { onClick: () => logBorrow(m.id), style: { background: "rgba(201,123,46,.2)", border: "1px solid rgba(201,123,46,.4)", borderRadius: 8, color: "#c97b2e", fontSize: 12, padding: "8px 14px" } }, "Log Borrow")),
+                borrowMsg[m.id] && React.createElement("div", { style: { fontSize: 11, color: "#c97b2e", marginBottom: 8 } }, borrowMsg[m.id]),
+                m.myBorrows.map(b => (React.createElement("div", { key: b.id, style: { display: "flex", alignItems: "center", justifyContent: "space-between", background: "#161616", borderRadius: 8, padding: "10px 14px", marginBottom: 6 } },
+                    React.createElement("div", null,
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } },
+                            "$",
+                            b.amount),
+                        React.createElement("div", { style: { fontSize: 10, color: "#555" } }, b.borrowed_on)),
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+                        React.createElement("span", { style: { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: b.repaid ? "rgba(46,125,110,.15)" : "rgba(168,50,50,.15)", color: b.repaid ? "#2e7d6e" : "#a83232", border: `1px solid ${b.repaid ? "rgba(46,125,110,.3)" : "rgba(168,50,50,.3)"}` } }, b.repaid ? "Repaid" : "Outstanding"),
+                        React.createElement("button", { onClick: () => toggleRepaid(b.id, b.repaid), style: { background: "none", border: "1px solid #2a2a2a", borderRadius: 8, color: "#555", fontSize: 10, padding: "3px 8px" } }, b.repaid ? "Mark Unpaid" : "Mark Repaid")))))))))),
+            tab === "donations" && (React.createElement("div", null,
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid rgba(46,125,110,.25)", borderRadius: 12, padding: "14px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                    React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, "\uD83E\uDD1D Community Reserve Fund"),
+                    React.createElement("div", { style: { fontSize: 24, fontWeight: 700, color: "#2e7d6e" } },
+                        "$",
+                        totDonations.toLocaleString())),
+                stats.map(m => {
+                    const dw = m.hand ? WEEKS[m.hand - 1] : null;
+                    return (React.createElement("div", { key: m.id, style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, padding: "14px 18px", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                            React.createElement(Av, { name: m.name, idx: m.idx, size: 32 }),
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, m.name),
+                                React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 2 } }, dw ? `Draw: ${dw.drawDate}` : "No hand assigned"))),
+                        React.createElement("div", { style: { textAlign: "right" } }, m.donationAmt > 0 ? React.createElement("div", null,
+                            React.createElement("div", { style: { fontSize: 16, fontWeight: 700, color: "#2e7d6e" } },
+                                "+$",
+                                m.donationAmt),
+                            React.createElement("div", { style: { fontSize: 10, color: "#555" } },
+                                "Receives $",
+                                m.finalDraw.toLocaleString())) : React.createElement("div", { style: { fontSize: 11, color: "#444" } }, "No donation pledged"))));
+                }))),
+            tab === "requests" && (React.createElement("div", null,
+                React.createElement("div", { style: { fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 14 } }, "Borrow Requests"),
+                borrowRequests.length === 0 && React.createElement("div", { style: { fontSize: 12, color: "#444", padding: 20, textAlign: "center" } }, "No requests yet."),
+                borrowRequests.sort((a, b) => a.status === "pending" ? -1 : 1).map(r => {
+                    const m = members.find(x => x.id === r.member_id);
+                    return (React.createElement("div", { key: r.id, style: { background: "#1c1c1c", border: `1px solid ${r.status === "pending" ? "rgba(201,123,46,.3)" : r.status === "approved" ? "rgba(46,125,110,.25)" : "rgba(168,50,50,.2)"}`, borderRadius: 12, padding: "16px 20px", marginBottom: 10 } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 } },
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                                React.createElement(Av, { name: (m === null || m === void 0 ? void 0 : m.name) || "?", idx: r.member_id - 1, size: 32 }),
+                                React.createElement("div", null,
+                                    React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, m === null || m === void 0 ? void 0 :
+                                        m.name,
+                                        " \u00B7 ",
+                                        React.createElement("span", { style: { color: "#c97b2e" } },
+                                            "$",
+                                            r.amount)),
+                                    React.createElement("div", { style: { fontSize: 10, color: "#555", marginTop: 3 } },
+                                        r.requested_on,
+                                        r.reason && ` · "${r.reason}"`))),
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+                                React.createElement("span", { style: { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: r.status === "pending" ? "rgba(201,123,46,.15)" : r.status === "approved" ? "rgba(46,125,110,.15)" : "rgba(168,50,50,.15)", color: r.status === "pending" ? "#c97b2e" : r.status === "approved" ? "#2e7d6e" : "#a83232", border: `1px solid ${r.status === "pending" ? "rgba(201,123,46,.3)" : r.status === "approved" ? "rgba(46,125,110,.3)" : "rgba(168,50,50,.3)"}` } }, r.status),
+                                r.status === "pending" && (React.createElement(React.Fragment, null,
+                                    React.createElement("button", { onClick: () => reviewRequest(r.id, true, r.member_id, r.amount), style: { background: "rgba(46,125,110,.2)", border: "1px solid rgba(46,125,110,.4)", borderRadius: 8, color: "#2e7d6e", fontSize: 11, padding: "4px 12px" } }, "Approve"),
+                                    React.createElement("button", { onClick: () => reviewRequest(r.id, false, r.member_id, r.amount), style: { background: "rgba(168,50,50,.15)", border: "1px solid rgba(168,50,50,.3)", borderRadius: 8, color: "#a83232", fontSize: 11, padding: "4px 12px" } }, "Decline")))))));
+                }))),
+            tab === "schedule" && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(175px,1fr))", gap: 8 } }, WEEKS.map(w => {
+                const rec = potMap[w.n];
+                const past = w.n < cw, cur = w.n === cw;
+                const midx = rec ? members.findIndex(m => m.id === rec.id) : -1;
+                const recStat = rec ? stats.find(s => s.id === rec.id) : null;
+                return (React.createElement("div", { key: w.n, style: { background: cur ? "rgba(201,123,46,.08)" : "#1c1c1c", border: `1px solid ${cur ? "rgba(201,123,46,.35)" : "#2a2a2a"}`, borderRadius: 10, padding: "12px 14px", opacity: past && !cur ? .55 : 1 } },
+                    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6 } },
+                        React.createElement("span", { style: { fontSize: 10, color: "#555" } },
+                            "Wk ",
+                            w.n),
+                        cur && React.createElement("span", { style: { fontSize: 9, color: "#c97b2e", background: "rgba(201,123,46,.15)", padding: "1px 6px", borderRadius: 10 } }, "NOW"),
+                        past && !cur && React.createElement("span", { style: { fontSize: 9, color: "#444" } }, "past")),
+                    React.createElement("div", { style: { fontSize: 10, color: "#666" } },
+                        "\uD83D\uDCB3 ",
+                        w.date),
+                    React.createElement("div", { style: { fontSize: 10, color: "#c97b2e", marginBottom: 8 } },
+                        "\uD83D\uDCB0 ",
+                        w.drawDate),
+                    rec ? React.createElement("div", null,
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4 } },
+                            React.createElement(Av, { name: rec.name, idx: midx, size: 26 }),
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontSize: 12, fontWeight: 600 } }, rec.name),
+                                React.createElement("div", { style: { fontSize: 10, color: "#c97b2e" } },
+                                    "$",
+                                    recStat ? (recStat.finalDraw + recStat.reserveContributions).toLocaleString() : 3200))),
+                        (recStat === null || recStat === void 0 ? void 0 : recStat.donationAmt) > 0 && React.createElement("div", { style: { fontSize: 9, color: "#2e7d6e" } },
+                            "+$",
+                            recStat.donationAmt,
+                            " donation"),
+                        (recStat === null || recStat === void 0 ? void 0 : recStat.reserveContributions) > 0 && React.createElement("div", { style: { fontSize: 9, color: "#2e7d6e" } },
+                            "+$",
+                            recStat.reserveContributions,
+                            " reserve refund")) : React.createElement("div", { style: { fontSize: 11, color: "#333", fontStyle: "italic" } }, "Unassigned")));
+            }))),
+            tab === "members" && (React.createElement("div", { style: { overflowX: "auto" } },
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, overflow: "hidden", minWidth: 750 } },
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 60px 80px 80px 60px 70px 80px 80px 75px", padding: "10px 18px", borderBottom: "1px solid #2a2a2a", fontSize: 10, color: "#555", textTransform: "uppercase" } },
+                        React.createElement("span", null, "Member"),
+                        React.createElement("span", null, "Hand"),
+                        React.createElement("span", null, "Deposit"),
+                        React.createElement("span", null, "Draw Date"),
+                        React.createElement("span", null, "Paid"),
+                        React.createElement("span", null, "Extra"),
+                        React.createElement("span", null, "Reserve"),
+                        React.createElement("span", null, "Final Draw"),
+                        React.createElement("span", null, "Status")),
+                    stats.map(m => {
+                        const dw = m.hand ? WEEKS[m.hand - 1] : null;
+                        return (React.createElement("div", { key: m.id, style: { display: "grid", gridTemplateColumns: "1fr 60px 80px 80px 60px 70px 80px 80px 75px", padding: "12px 18px", alignItems: "center", borderBottom: "1px solid #1a1a1a" } },
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } },
+                                React.createElement(Av, { name: m.name, idx: m.idx, size: 30 }),
+                                React.createElement("span", { style: { fontSize: 13 } }, m.name)),
+                            React.createElement(HBadge, { hand: m.hand }),
+                            React.createElement("span", { style: { fontSize: 11, color: "#666" } }, dw ? dw.date : "—"),
+                            React.createElement("span", { style: { fontSize: 11, color: "#c97b2e" } }, dw ? dw.drawDate : "—"),
+                            React.createElement("span", { style: { fontSize: 13 } },
+                                m.paid,
+                                React.createElement("span", { style: { color: "#444" } },
+                                    "/",
+                                    m.due)),
+                            React.createElement("span", { style: { fontSize: 13, color: "#7B3F8C" } },
+                                "$",
+                                (m.totalExtra - m.reserveContributions).toLocaleString()),
+                            React.createElement("span", { style: { fontSize: 13, color: "#2e7d6e" } },
+                                "$",
+                                m.reserveContributions.toLocaleString()),
+                            React.createElement("span", { style: { fontSize: 13, color: "#c97b2e" } },
+                                "$",
+                                (m.finalDraw + m.reserveContributions).toLocaleString()),
+                            React.createElement("span", { style: { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: m.arr > 0 ? "rgba(168,50,50,.15)" : "rgba(46,125,110,.15)", color: m.arr > 0 ? "#a83232" : "#2e7d6e", border: `1px solid ${m.arr > 0 ? "rgba(168,50,50,.3)" : "rgba(46,125,110,.3)"}` } }, m.arr > 0 ? `${m.arr} behind` : "current")));
+                    })))),
+            tab === "disclosure" && React.createElement(Disclosure, null),
+            tab === "settings" && (React.createElement("div", { style: { maxWidth: 500 } },
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, marginBottom: 16, overflow: "hidden" } },
+                    React.createElement("div", { style: { padding: "14px 20px", borderBottom: "1px solid #2a2a2a", fontSize: 13, fontWeight: 600 } }, "\uD83D\uDD10 Change Admin PIN"),
+                    React.createElement(ChangePinForm, { currentPin: adminPin, onSave: saveAdminPin, onCancel: () => { } })),
+                React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 14, overflow: "hidden" } },
+                    React.createElement("div", { style: { padding: "14px 20px", borderBottom: "1px solid #2a2a2a", fontSize: 13, fontWeight: 600 } }, "\uD83D\uDC65 Reset Member PINs"),
+                    React.createElement("div", { style: { padding: "8px 0" } }, members.map((m, i) => (React.createElement("div", { key: m.id, style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", borderBottom: "1px solid #1a1a1a" } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                            React.createElement(Av, { name: m.name, idx: i, size: 30 }),
+                            React.createElement("span", { style: { fontSize: 13 } }, m.name)),
+                        React.createElement("button", { onClick: () => resetMemberPin(m.id), style: { background: "rgba(168,50,50,.15)", border: "1px solid rgba(168,50,50,.3)", borderRadius: 8, color: "#a83232", fontSize: 11, padding: "5px 12px" } }, "Reset to default"))))),
+                    React.createElement("div", { style: { padding: "10px 20px", fontSize: 10, color: "#444" } }, "Resetting returns member PIN to their default.")))))));
+}
+function App() {
+    const [members, setMembers] = useState([]);
+    const [allPayments, setAllPayments] = useState({});
+    const [borrows, setBorrows] = useState([]);
+    const [donations, setDonations] = useState([]);
+    const [borrowRequests, setBorrowRequests] = useState([]);
+    const [extraCapital, setExtraCapital] = useState([]);
+    const [lateFees, setLateFees] = useState([]);
+    const [adminPin, setAdminPin] = useState("1234");
+    const [role, setRole] = useState(null);
+    const [currentMember, setCurrentMember] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const [sessionToken, setSessionToken] = useState(null);
+    const cw = useMemo(getCurWeek, []);
+    useEffect(() => {
+        async function load() {
+            try {
+                const d = await callApi('load');
+                setMembers(Array.isArray(d.members) ? d.members : []);
+                const pm = {};
+                (Array.isArray(d.payments) ? d.payments : []).forEach(r => { if (!pm[r.member_id])
+                    pm[r.member_id] = {}; pm[r.member_id][r.week_num] = r.paid; });
+                setAllPayments(pm);
+                if (d.adminSettings && d.adminSettings.pin)
+                    setAdminPin(d.adminSettings.pin);
+                setBorrows(Array.isArray(d.borrows) ? d.borrows : []);
+                setDonations(Array.isArray(d.donations) ? d.donations : []);
+                setBorrowRequests(Array.isArray(d.borrowRequests) ? d.borrowRequests : []);
+                setExtraCapital(Array.isArray(d.extraCapital) ? d.extraCapital : []);
+                setLateFees(Array.isArray(d.lateFees) ? d.lateFees : []);
+            }
+            catch (e) {
+                console.error('Load error:', e);
+                setLoadError(String(e));
+            }
+            finally {
+                setLoading(false);
+            }
+        }
+        load();
+    }, []);
+    const handleLogin = (r, m) => { const token = createSession(r, m); setSessionToken(token); setRole(r); setCurrentMember(m); };
+    const handleLogout = () => { destroySession(); setSessionToken(null); setRole(null); setCurrentMember(null); };
+    const handleMemberPin = (id, newPin) => { setMembers(prev => prev.map(m => m.id === id ? { ...m, pin: newPin } : m)); if ((currentMember === null || currentMember === void 0 ? void 0 : currentMember.id) === id)
+        setCurrentMember(prev => ({ ...prev, pin: newPin })); };
+    const handleMemberPinReset = (id, defPin) => setMembers(prev => prev.map(m => m.id === id ? { ...m, pin: defPin } : m));
+    const handleDonationUpdate = async (memberId, amount, existingId) => {
+        const res = await callApi('upsertDonation', { memberId, amount, existingId });
+        if (existingId) {
+            setDonations(prev => prev.map(d => d.id === existingId ? { ...d, amount } : d));
+        }
+        else if (amount > 0 && res.data) {
+            setDonations(prev => [...prev, res.data]);
+        }
+    };
+    const handleBorrowRequest = async (memberId, amount, reason) => {
+        const { data } = await callApi('insertBorrowRequest', { memberId, amount, reason });
+        if (data)
+            setBorrowRequests(prev => [...prev, data]);
+    };
+    if (loading)
+        return React.createElement(Loading, null);
+    if (loadError)
+        return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#111", padding: 20 } },
+            React.createElement("div", { style: { background: "#1c1c1c", border: "1px solid #a83232", borderRadius: 12, padding: 24, maxWidth: 500, width: "100%" } },
+                React.createElement("div", { style: { color: "#a83232", fontWeight: 700, marginBottom: 12 } }, "Load Error"),
+                React.createElement("div", { style: { fontSize: 11, color: "#888", wordBreak: "break-all" } }, loadError)));
+    if (!role)
+        return React.createElement(Login, { members: members, adminPin: adminPin, onLogin: handleLogin });
+    if (role === "member") {
+        const mp = allPayments[currentMember.id] || {};
+        return React.createElement(MemberView, { member: currentMember, payments: mp, borrows: borrows, donations: donations, borrowRequests: borrowRequests, extraCapital: extraCapital, lateFees: lateFees, cw: cw, onLogout: handleLogout, onPinSaved: handleMemberPin, onDonationUpdate: handleDonationUpdate, onBorrowRequest: handleBorrowRequest, sessionToken: sessionToken });
     }
-  };
-
-  const logBorrow=async(mid)=>{
-    handleActivity();
-    const amt=parseFloat(borrowForm[mid]||0);
-    if(!amt||amt<100){setBorrowMsg(p=>({...p,[mid]:"Min $100."}));return;}
-    const m=stats.find(s=>s.id===mid);
-    if(amt>m.eligibleBorrow){setBorrowMsg(p=>({...p,[mid]:`Max $${m.eligibleBorrow}.`}));return;}
-    const{data}=await callApi('insertBorrow',{memberId:mid,amount:amt});
-    if(data){setBorrows(prev=>[...prev,data]);setBorrowForm(p=>({...p,[mid]:""}));setBorrowMsg(p=>({...p,[mid]:"Logged."}));setTimeout(()=>setBorrowMsg(p=>({...p,[mid]:""})),3000);}
-  };
-
-  const logExtraCapital=async(mid)=>{
-    handleActivity();
-    const amt=parseFloat(extraForm[mid]?.amount||0);
-    const note=extraForm[mid]?.note||"";
-    const weekNum=parseInt(extraForm[mid]?.week||cw);
-    if(!amt||amt<=0){setExtraMsg(p=>({...p,[mid]:"Enter valid amount."}));return;}
-    const{data}=await callApi('insertExtraCapital',{memberId:mid,weekNum,amount:amt,note});
-    if(data){setExtraCapital(prev=>[...prev,data]);setExtraForm(p=>({...p,[mid]:{}}));setExtraMsg(p=>({...p,[mid]:"Extra capital logged."}));setTimeout(()=>setExtraMsg(p=>({...p,[mid]:""})),3000);}
-  };
-
-  const toggleRepaid=async(borrowId,current)=>{
-    handleActivity();
-    await callApi('updateBorrow',{id:borrowId,repaid:!current,repaidOn:!current?new Date().toISOString().split("T")[0]:null});
-    setBorrows(prev=>prev.map(b=>b.id===borrowId?{...b,repaid:!current}:b));
-  };
-
-  const reviewRequest=async(reqId,approved,memberId,amount)=>{
-    handleActivity();
-    const status=approved?"approved":"declined";
-    const res=await callApi('reviewRequest',{reqId,status,memberId,amount});
-    if(approved&&res.data)setBorrows(prev=>[...prev,res.data]);
-    setBorrowRequests(prev=>prev.map(r=>r.id===reqId?{...r,status}:r));
-  };
-
-  const saveAdminPin=async(newPin)=>{await callApi('updateAdminPin',{pin:newPin});onAdminPinSaved(newPin);};
-
-  const resetMemberPin=async(id)=>{
-    const defaults=["1111","2222","3333","4444","5555","6666","7777","8888","9999","0000"];
-    const defPin=defaults[id-1];
-    await callApi('updateMemberPin',{id,pin:defPin});
-    onMemberPinReset(id,defPin);
-  };
-
-  const card=(label,val,sub,color)=>(
-    <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 18px",flex:1,minWidth:120}}>
-      <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:5}}>{label}</div>
-      <div style={{fontSize:22,fontWeight:700,lineHeight:1,color:color||"#e8e0d4"}}>{val}</div>
-      {sub&&<div style={{fontSize:10,color:"#555",marginTop:4}}>{sub}</div>}
-    </div>
-  );
-
-  return(
-    <div style={{minHeight:"100vh",background:"#111"}} onClick={handleActivity} onKeyDown={handleActivity}>
-      <SessionWarning remaining={sessionRemaining} onExtend={extendSession}/>
-      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
-        <div><div style={{fontSize:16,fontWeight:700}}>💰 3200 Pardna — Admin</div><div style={{fontSize:10,color:"#555",marginTop:2}}>Jun 13 2025 → Jan 16 2026</div></div>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          {pendingRequests.length>0&&<span style={{background:"rgba(168,50,50,.2)",color:"#a83232",border:"1px solid rgba(168,50,50,.3)",borderRadius:20,padding:"4px 10px",fontSize:11}}>⚠️ {pendingRequests.length}</span>}
-          <span style={{background:"rgba(201,123,46,.15)",color:"#c97b2e",border:"1px solid rgba(201,123,46,.3)",borderRadius:20,padding:"4px 12px",fontSize:11}}>Week {cw}</span>
-          <button onClick={onLogout} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:11,padding:"4px 10px"}}>Logout</button>
-        </div>
-      </div>
-
-      <div style={{background:"#181818",borderBottom:"1px solid #2a2a2a",display:"flex",padding:"0 20px",overflowX:"auto"}}>
-        {["overview","payments","capital","borrows","donations","requests","schedule","members","disclosure","settings"].map(t=>(
-          <button key={t} onClick={()=>{setTab(t);handleActivity();}} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t?"#c97b2e":"transparent"}`,color:tab===t?"#c97b2e":"#555",fontSize:12,padding:"12px 14px",whiteSpace:"nowrap",textTransform:"capitalize",position:"relative"}}>
-            {t}{t==="requests"&&pendingRequests.length>0&&<span style={{background:"#a83232",color:"#fff",borderRadius:"50%",fontSize:9,padding:"1px 5px",marginLeft:4}}>{pendingRequests.length}</span>}
-          </button>
-        ))}
-      </div>
-
-      <div style={{padding:20,maxWidth:960,margin:"0 auto"}}>
-
-        {tab==="overview"&&(
-          <div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
-              {card("Pot Size","$3,200",null,"#c97b2e")}
-              {card("Collected",`$${totCol.toLocaleString()}`,`Week ${cw} of ${NWEEKS}`)}
-              {card("Extra Capital",`$${totExtra.toLocaleString()}`,"voluntary","#7B3F8C")}
-              {card("Reserve Pool",`$${totReserve.toLocaleString()}`,"held for refund","#2e7d6e")}
-              {card("Health",`${health}%`,null,health>=80?"#2e7d6e":health>=60?"#c97b2e":"#a83232")}
-              {card("Arrears",totArr,"payments behind",totArr>0?"#a83232":"#2e7d6e")}
-              {card("Donations",`$${totDonations.toLocaleString()}`,"community fund","#2e7d6e")}
-            </div>
-            {pendingRequests.length>0&&(
-              <div style={{background:"rgba(168,50,50,.08)",border:"1px solid rgba(168,50,50,.2)",borderRadius:12,padding:"14px 18px",marginBottom:20}}>
-                <div style={{fontSize:12,fontWeight:600,color:"#a83232",marginBottom:10}}>⚠️ Pending Borrow Requests</div>
-                {pendingRequests.map(r=>{const m=members.find(x=>x.id===r.member_id);return(<div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:8}}><div style={{fontSize:12}}><span style={{fontWeight:600}}>{m?.name}</span> · ${r.amount}{r.reason&&` · "${r.reason}"`}</div><div style={{display:"flex",gap:8}}><button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button><button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button></div></div>);})}
-              </div>
-            )}
-            <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Members</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10}}>
-              {stats.map(m=>(
-                <div key={m.id} onClick={()=>{setFmem(m.id);setTab("payments");handleActivity();}} style={{background:"#1c1c1c",border:`1px solid ${m.myLateWeeks.length>0?"rgba(201,123,46,.3)":"#2a2a2a"}`,borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
-                  <Av name={m.name} idx={m.idx}/>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:600}}>{m.name}</span><HBadge hand={m.hand}/>{m.myLateWeeks.length>0&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>MISSED {m.myLateWeeks.length}</span>}</div>
-                    <div style={{background:"#2a2a2a",borderRadius:4,height:4,overflow:"hidden"}}><div style={{width:`${m.due>0?(m.paid/m.due)*100:0}%`,height:"100%",background:m.arr>0?"#a83232":"#2e7d6e",borderRadius:4}}/></div>
-                    <div style={{fontSize:10,color:"#555",marginTop:4,display:"flex",justifyContent:"space-between"}}>
-                      <span>{m.paid}/{m.due} · {m.myLateWeeks.length>0?<span style={{color:"#c97b2e"}}>Next: ${m.debtInfo.totalOwed}</span>:<span>Next: $100</span>}</span>
-                      <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"✓ current"}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {tab==="payments"&&(
-          <div>
-            <div style={{fontSize:11,color:"#555",marginBottom:14}}>Tap tile = toggle paid · Tap "missed" = mark payment missed (auto-adds $25 reserve to end-of-cycle refund only)</div>
-            <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
-              <span style={{fontSize:11,color:"#555"}}>Filter:</span>
-              <button onClick={()=>setFmem(null)} style={{background:!fmem?"rgba(201,123,46,.12)":"none",border:`1px solid ${!fmem?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:!fmem?"#c97b2e":"#555",fontSize:11,padding:"4px 11px"}}>All</button>
-              {stats.map(m=><button key={m.id} onClick={()=>setFmem(fmem===m.id?null:m.id)} style={{background:fmem===m.id?"rgba(201,123,46,.12)":"none",border:`1px solid ${fmem===m.id?"rgba(201,123,46,.45)":"#2a2a2a"}`,borderRadius:20,color:fmem===m.id?"#c97b2e":"#555",fontSize:11,padding:"4px 11px"}}>{m.name}</button>)}
-            </div>
-            {(fmem?stats.filter(m=>m.id===fmem):stats).map(m=>(
-              <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
-                <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:10}}>
-                  <Av name={m.name} idx={m.idx}/>
-                  <div>
-                    <div style={{fontSize:14,fontWeight:600,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{m.name}<HBadge hand={m.hand}/>{m.numHands>1&&<span style={{fontSize:10,color:"#7B3F8C"}}>{m.numHands} hands</span>}</div>
-                    <div style={{fontSize:11,color:"#555",marginTop:3}}>{m.paid} paid · <span style={{color:m.arr>0?"#a83232":"#2e7d6e"}}>{m.arr>0?`${m.arr} behind`:"current"}</span> · Extra: ${m.totalExtra.toLocaleString()} · Draw: ${m.finalDraw.toLocaleString()}</div>
-                  </div>
-                </div>
-                {m.myLateWeeks.length>0&&(
-                  <div style={{background:"rgba(201,123,46,.08)",border:"1px solid rgba(201,123,46,.2)",borderRadius:8,padding:"10px 14px",marginBottom:10,fontSize:11}}>
-                    <span style={{color:"#c97b2e",fontWeight:600}}>Next week owes: ${m.debtInfo.totalOwed}</span>
-                    <span style={{color:"#555",marginLeft:8}}>({m.myLateWeeks.length} missed × $125 + $100 current)</span>
-                    <span style={{color:"#2e7d6e",marginLeft:8}}>Reserve: +${m.debtInfo.reserveContributions} → returned end of cycle only</span>
-                  </div>
-                )}
-                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {WEEKS.map(w=>{
-                    const paid=allPayments[m.id]?.[w.n]||false,due=w.n<=cw,cur=w.n===cw;
-                    const lf=lateFees.find(f=>f.member_id===m.id&&f.week_num===w.n&&!f.paid);
-                    const isLate=!!lf;
-                    return(
-                      <div key={w.n} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                        <div title={`Week ${w.n} · ${w.date}${isLate?" · MISSED":""}`} onClick={()=>{if(due)toggle(m.id,w.n);}}
-                          style={{width:34,height:34,borderRadius:8,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",
-                            border:`1.5px solid ${cur?"rgba(201,123,46,.6)":isLate?"rgba(201,123,46,.5)":paid?"rgba(46,125,110,.4)":due?"rgba(168,50,50,.35)":"#2a2a2a"}`,
-                            background:isLate?"rgba(201,123,46,.15)":paid?"rgba(46,125,110,.2)":due?"rgba(168,50,50,.18)":"#161616",
-                            color:isLate?"#c97b2e":paid?"#2e7d6e":due?"#a83232":"#333",cursor:due?"pointer":"default"}}>
-                          {w.n}{isLate&&<div style={{position:"absolute",top:-3,right:-3,width:6,height:6,borderRadius:"50%",background:"#c97b2e"}}/>}
-                        </div>
-                        {due&&<button onClick={()=>toggleLate(m.id,w.n,isLate)} style={{fontSize:8,padding:"1px 4px",borderRadius:4,background:isLate?"rgba(201,123,46,.2)":"rgba(255,255,255,.05)",border:`1px solid ${isLate?"rgba(201,123,46,.4)":"#2a2a2a"}`,color:isLate?"#c97b2e":"#444"}}>{isLate?"✓miss":"miss"}</button>}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{display:"flex",gap:14,marginTop:12,fontSize:10,color:"#555",flexWrap:"wrap"}}>
-                  <span><span style={{color:"#2e7d6e"}}>■</span> Paid</span>
-                  <span><span style={{color:"#a83232"}}>■</span> Unpaid</span>
-                  <span><span style={{color:"#c97b2e"}}>■</span> Missed</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab==="capital"&&(
-          <div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-              <div style={{background:"rgba(123,63,140,.08)",border:"1px solid rgba(123,63,140,.2)",borderRadius:12,padding:"12px 18px",flex:1,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div style={{fontSize:13,fontWeight:600}}>💜 Voluntary Extra Capital</div>
-                <div style={{fontSize:24,fontWeight:700,color:"#7B3F8C"}}>${totExtra.toLocaleString()}</div>
-              </div>
-              <div style={{background:"rgba(46,125,110,.08)",border:"1px solid rgba(46,125,110,.2)",borderRadius:12,padding:"12px 18px",flex:1,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:600}}>🏦 Reserve Pool</div>
-                  <div style={{fontSize:10,color:"#555",marginTop:2}}>Refunded at end of cycle</div>
-                </div>
-                <div style={{fontSize:24,fontWeight:700,color:"#2e7d6e"}}>${totReserve.toLocaleString()}</div>
-              </div>
-            </div>
-            {stats.map(m=>(
-              <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
-                <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
-                  <Av name={m.name} idx={m.idx}/>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{m.name}</div>
-                    <div style={{fontSize:11,color:"#555"}}>Voluntary: <span style={{color:"#7B3F8C"}}>${(m.totalExtra-m.reserveContributions).toLocaleString()}</span> · Reserve: <span style={{color:"#2e7d6e"}}>${m.reserveContributions.toLocaleString()}</span> · Total in: <span style={{color:"#c97b2e"}}>${m.totalContributed.toLocaleString()}</span> · Borrow eligible: <span style={{color:"#2e7d6e"}}>${m.eligibleBorrow.toLocaleString()}</span></div>
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-                  <input type="number" placeholder="Amount" value={extraForm[m.id]?.amount||""} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],amount:e.target.value}}))} style={{flex:1,minWidth:100,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
-                  <select value={extraForm[m.id]?.week||cw} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],week:e.target.value}}))} style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 10px",fontSize:12,color:"#e8e0d4"}}>
-                    {WEEKS.map(w=><option key={w.n} value={w.n}>Wk {w.n} · {w.date}</option>)}
-                  </select>
-                  <input type="text" placeholder="Note (optional)" value={extraForm[m.id]?.note||""} onChange={e=>setExtraForm(p=>({...p,[m.id]:{...p[m.id],note:e.target.value}}))} style={{flex:2,minWidth:120,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
-                  <button onClick={()=>logExtraCapital(m.id)} style={{background:"rgba(123,63,140,.2)",border:"1px solid rgba(123,63,140,.4)",borderRadius:8,color:"#7B3F8C",fontSize:12,padding:"8px 14px"}}>Log</button>
-                </div>
-                {extraMsg[m.id]&&<div style={{fontSize:11,color:"#7B3F8C",marginBottom:8}}>{extraMsg[m.id]}</div>}
-                {m.myExtra.map(e=>(
-                  <div key={e.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#161616",borderRadius:8,padding:"10px 14px",marginBottom:6}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600,color:e.note==="reserve_contribution"?"#2e7d6e":"#7B3F8C"}}>+${parseFloat(e.amount).toLocaleString()}</div>
-                      <div style={{fontSize:10,color:"#555"}}>{e.note==="reserve_contribution"?`🏦 Reserve · Wk ${e.week_num}`:`Wk ${e.week_num} · ${e.logged_on}${e.note?` · ${e.note}`:""}`}</div>
-                    </div>
-                    {e.note==="reserve_contribution"&&<span style={{fontSize:9,color:"#2e7d6e",background:"rgba(46,125,110,.1)",padding:"2px 6px",borderRadius:8}}>refundable</span>}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab==="borrows"&&(
-          <div>
-            {stats.map(m=>(
-              <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,padding:"18px 20px",marginBottom:12}}>
-                <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
-                  <Av name={m.name} idx={m.idx}/>
-                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{m.name}</div><div style={{fontSize:11,color:"#555"}}>Total in: ${m.totalContributed.toLocaleString()} · Eligible: <span style={{color:"#c97b2e"}}>${m.eligibleBorrow.toLocaleString()}</span> · {m.activeBorrow?<span style={{color:"#a83232"}}>Active: ${m.activeBorrow.amount}</span>:<span style={{color:"#2e7d6e"}}>No active borrow</span>}</div></div>
-                </div>
-                <div style={{display:"flex",gap:8,marginBottom:8}}>
-                  <input type="number" placeholder="Amount" value={borrowForm[m.id]||""} onChange={e=>setBorrowForm(p=>({...p,[m.id]:e.target.value}))} style={{flex:1,background:"#111",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 12px",fontSize:13}}/>
-                  <button onClick={()=>logBorrow(m.id)} style={{background:"rgba(201,123,46,.2)",border:"1px solid rgba(201,123,46,.4)",borderRadius:8,color:"#c97b2e",fontSize:12,padding:"8px 14px"}}>Log Borrow</button>
-                </div>
-                {borrowMsg[m.id]&&<div style={{fontSize:11,color:"#c97b2e",marginBottom:8}}>{borrowMsg[m.id]}</div>}
-                {m.myBorrows.map(b=>(
-                  <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#161616",borderRadius:8,padding:"10px 14px",marginBottom:6}}>
-                    <div><div style={{fontSize:13,fontWeight:600}}>${b.amount}</div><div style={{fontSize:10,color:"#555"}}>{b.borrowed_on}</div></div>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:b.repaid?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",color:b.repaid?"#2e7d6e":"#a83232",border:`1px solid ${b.repaid?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>{b.repaid?"Repaid":"Outstanding"}</span>
-                      <button onClick={()=>toggleRepaid(b.id,b.repaid)} style={{background:"none",border:"1px solid #2a2a2a",borderRadius:8,color:"#555",fontSize:10,padding:"3px 8px"}}>{b.repaid?"Mark Unpaid":"Mark Repaid"}</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab==="donations"&&(
-          <div>
-            <div style={{background:"#1c1c1c",border:"1px solid rgba(46,125,110,.25)",borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontSize:13,fontWeight:600}}>🤝 Community Reserve Fund</div>
-              <div style={{fontSize:24,fontWeight:700,color:"#2e7d6e"}}>${totDonations.toLocaleString()}</div>
-            </div>
-            {stats.map(m=>{const dw=m.hand?WEEKS[m.hand-1]:null;return(
-              <div key={m.id} style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:12,padding:"14px 18px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}><Av name={m.name} idx={m.idx} size={32}/><div><div style={{fontSize:13,fontWeight:600}}>{m.name}</div><div style={{fontSize:10,color:"#555",marginTop:2}}>{dw?`Draw: ${dw.drawDate}`:"No hand assigned"}</div></div></div>
-                <div style={{textAlign:"right"}}>{m.donationAmt>0?<div><div style={{fontSize:16,fontWeight:700,color:"#2e7d6e"}}>+${m.donationAmt}</div><div style={{fontSize:10,color:"#555"}}>Receives ${m.finalDraw.toLocaleString()}</div></div>:<div style={{fontSize:11,color:"#444"}}>No donation pledged</div>}</div>
-              </div>
-            );})}
-          </div>
-        )}
-
-        {tab==="requests"&&(
-          <div>
-            <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".5px",marginBottom:14}}>Borrow Requests</div>
-            {borrowRequests.length===0&&<div style={{fontSize:12,color:"#444",padding:20,textAlign:"center"}}>No requests yet.</div>}
-            {borrowRequests.sort((a,b)=>a.status==="pending"?-1:1).map(r=>{const m=members.find(x=>x.id===r.member_id);return(
-              <div key={r.id} style={{background:"#1c1c1c",border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.25)":"rgba(168,50,50,.2)"}`,borderRadius:12,padding:"16px 20px",marginBottom:10}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10}}><Av name={m?.name||"?"} idx={r.member_id-1} size={32}/><div><div style={{fontSize:13,fontWeight:600}}>{m?.name} · <span style={{color:"#c97b2e"}}>${r.amount}</span></div><div style={{fontSize:10,color:"#555",marginTop:3}}>{r.requested_on}{r.reason&&` · "${r.reason}"`}</div></div></div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:r.status==="pending"?"rgba(201,123,46,.15)":r.status==="approved"?"rgba(46,125,110,.15)":"rgba(168,50,50,.15)",color:r.status==="pending"?"#c97b2e":r.status==="approved"?"#2e7d6e":"#a83232",border:`1px solid ${r.status==="pending"?"rgba(201,123,46,.3)":r.status==="approved"?"rgba(46,125,110,.3)":"rgba(168,50,50,.3)"}`}}>{r.status}</span>
-                    {r.status==="pending"&&(<><button onClick={()=>reviewRequest(r.id,true,r.member_id,r.amount)} style={{background:"rgba(46,125,110,.2)",border:"1px solid rgba(46,125,110,.4)",borderRadius:8,color:"#2e7d6e",fontSize:11,padding:"4px 12px"}}>Approve</button><button onClick={()=>reviewRequest(r.id,false,r.member_id,r.amount)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"4px 12px"}}>Decline</button></>)}
-                  </div>
-                </div>
-              </div>
-            );})}
-          </div>
-        )}
-
-        {tab==="schedule"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:8}}>
-            {WEEKS.map(w=>{
-              const rec=potMap[w.n];const past=w.n<cw,cur=w.n===cw;
-              const midx=rec?members.findIndex(m=>m.id===rec.id):-1;
-              const recStat=rec?stats.find(s=>s.id===rec.id):null;
-              return(
-                <div key={w.n} style={{background:cur?"rgba(201,123,46,.08)":"#1c1c1c",border:`1px solid ${cur?"rgba(201,123,46,.35)":"#2a2a2a"}`,borderRadius:10,padding:"12px 14px",opacity:past&&!cur?.55:1}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:"#555"}}>Wk {w.n}</span>{cur&&<span style={{fontSize:9,color:"#c97b2e",background:"rgba(201,123,46,.15)",padding:"1px 6px",borderRadius:10}}>NOW</span>}{past&&!cur&&<span style={{fontSize:9,color:"#444"}}>past</span>}</div>
-                  <div style={{fontSize:10,color:"#666"}}>💳 {w.date}</div>
-                  <div style={{fontSize:10,color:"#c97b2e",marginBottom:8}}>💰 {w.drawDate}</div>
-                  {rec?<div><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><Av name={rec.name} idx={midx} size={26}/><div><div style={{fontSize:12,fontWeight:600}}>{rec.name}</div><div style={{fontSize:10,color:"#c97b2e"}}>${recStat?(recStat.finalDraw+recStat.reserveContributions).toLocaleString():3200}</div></div></div>{recStat?.donationAmt>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.donationAmt} donation</div>}{recStat?.reserveContributions>0&&<div style={{fontSize:9,color:"#2e7d6e"}}>+${recStat.reserveContributions} reserve refund</div>}</div>:<div style={{fontSize:11,color:"#333",fontStyle:"italic"}}>Unassigned</div>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {tab==="members"&&(
-          <div style={{overflowX:"auto"}}>
-            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden",minWidth:750}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 60px 70px 80px 80px 75px",padding:"10px 18px",borderBottom:"1px solid #2a2a2a",fontSize:10,color:"#555",textTransform:"uppercase"}}>
-                <span>Member</span><span>Hand</span><span>Deposit</span><span>Draw Date</span><span>Paid</span><span>Extra</span><span>Reserve</span><span>Final Draw</span><span>Status</span>
-              </div>
-              {stats.map(m=>{const dw=m.hand?WEEKS[m.hand-1]:null;return(
-                <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 80px 80px 60px 70px 80px 80px 75px",padding:"12px 18px",alignItems:"center",borderBottom:"1px solid #1a1a1a"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:9}}><Av name={m.name} idx={m.idx} size={30}/><span style={{fontSize:13}}>{m.name}</span></div>
-                  <HBadge hand={m.hand}/>
-                  <span style={{fontSize:11,color:"#666"}}>{dw?dw.date:"—"}</span>
-                  <span style={{fontSize:11,color:"#c97b2e"}}>{dw?dw.drawDate:"—"}</span>
-                  <span style={{fontSize:13}}>{m.paid}<span style={{color:"#444"}}>/{m.due}</span></span>
-                  <span style={{fontSize:13,color:"#7B3F8C"}}>${(m.totalExtra-m.reserveContributions).toLocaleString()}</span>
-                  <span style={{fontSize:13,color:"#2e7d6e"}}>${m.reserveContributions.toLocaleString()}</span>
-                  <span style={{fontSize:13,color:"#c97b2e"}}>${(m.finalDraw+m.reserveContributions).toLocaleString()}</span>
-                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:m.arr>0?"rgba(168,50,50,.15)":"rgba(46,125,110,.15)",color:m.arr>0?"#a83232":"#2e7d6e",border:`1px solid ${m.arr>0?"rgba(168,50,50,.3)":"rgba(46,125,110,.3)"}`}}>{m.arr>0?`${m.arr} behind`:"current"}</span>
-                </div>
-              );})}
-            </div>
-          </div>
-        )}
-
-        {tab==="disclosure"&&<Disclosure/>}
-
-        {tab==="settings"&&(
-          <div style={{maxWidth:500}}>
-            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,marginBottom:16,overflow:"hidden"}}>
-              <div style={{padding:"14px 20px",borderBottom:"1px solid #2a2a2a",fontSize:13,fontWeight:600}}>🔐 Change Admin PIN</div>
-              <ChangePinForm currentPin={adminPin} onSave={saveAdminPin} onCancel={()=>{}}/>
-            </div>
-            <div style={{background:"#1c1c1c",border:"1px solid #2a2a2a",borderRadius:14,overflow:"hidden"}}>
-              <div style={{padding:"14px 20px",borderBottom:"1px solid #2a2a2a",fontSize:13,fontWeight:600}}>👥 Reset Member PINs</div>
-              <div style={{padding:"8px 0"}}>
-                {members.map((m,i)=>(
-                  <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 20px",borderBottom:"1px solid #1a1a1a"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}><Av name={m.name} idx={i} size={30}/><span style={{fontSize:13}}>{m.name}</span></div>
-                    <button onClick={()=>resetMemberPin(m.id)} style={{background:"rgba(168,50,50,.15)",border:"1px solid rgba(168,50,50,.3)",borderRadius:8,color:"#a83232",fontSize:11,padding:"5px 12px"}}>Reset to default</button>
-                  </div>
-                ))}
-              </div>
-              <div style={{padding:"10px 20px",fontSize:10,color:"#444"}}>Resetting returns member PIN to their default.</div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    if (role === "admin")
+        return React.createElement(AdminView, { members: members, allPayments: allPayments, setAllPayments: setAllPayments, borrows: borrows, setBorrows: setBorrows, donations: donations, borrowRequests: borrowRequests, setBorrowRequests: setBorrowRequests, extraCapital: extraCapital, setExtraCapital: setExtraCapital, lateFees: lateFees, setLateFees: setLateFees, cw: cw, onLogout: handleLogout, adminPin: adminPin, onAdminPinSaved: setAdminPin, onMemberPinReset: handleMemberPinReset, sessionToken: sessionToken });
 }
-
-function App(){
-  const[members,setMembers]=useState([]);
-  const[allPayments,setAllPayments]=useState({});
-  const[borrows,setBorrows]=useState([]);
-  const[donations,setDonations]=useState([]);
-  const[borrowRequests,setBorrowRequests]=useState([]);
-  const[extraCapital,setExtraCapital]=useState([]);
-  const[lateFees,setLateFees]=useState([]);
-  const[adminPin,setAdminPin]=useState("1234");
-  const[role,setRole]=useState(null);
-  const[currentMember,setCurrentMember]=useState(null);
-  const[loading,setLoading]=useState(true);
-  const[loadError,setLoadError]=useState(null);
-  const[sessionToken,setSessionToken]=useState(null);
-  const cw=useMemo(getCurWeek,[]);
-
-  useEffect(()=>{
-    async function load(){
-      try{
-      const d=await callApi('load');
-      setMembers(Array.isArray(d.members)?d.members:[]);
-      const pm={};(Array.isArray(d.payments)?d.payments:[]).forEach(r=>{if(!pm[r.member_id])pm[r.member_id]={};pm[r.member_id][r.week_num]=r.paid;});
-      setAllPayments(pm);
-      if(d.adminSettings&&d.adminSettings.pin)setAdminPin(d.adminSettings.pin);
-      setBorrows(Array.isArray(d.borrows)?d.borrows:[]);
-      setDonations(Array.isArray(d.donations)?d.donations:[]);
-      setBorrowRequests(Array.isArray(d.borrowRequests)?d.borrowRequests:[]);
-      setExtraCapital(Array.isArray(d.extraCapital)?d.extraCapital:[]);
-      setLateFees(Array.isArray(d.lateFees)?d.lateFees:[]);
-    }catch(e){console.error('Load error:',e);setLoadError(String(e));}
-    finally{setLoading(false);}
-    }
-    load();
-  },[]);
-
-  const handleLogin=(r,m)=>{const token=createSession(r,m);setSessionToken(token);setRole(r);setCurrentMember(m);};
-  const handleLogout=()=>{destroySession();setSessionToken(null);setRole(null);setCurrentMember(null);};
-  const handleMemberPin=(id,newPin)=>{setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:newPin}:m));if(currentMember?.id===id)setCurrentMember(prev=>({...prev,pin:newPin}));};
-  const handleMemberPinReset=(id,defPin)=>setMembers(prev=>prev.map(m=>m.id===id?{...m,pin:defPin}:m));
-
-  const handleDonationUpdate=async(memberId,amount,existingId)=>{
-    const res=await callApi('upsertDonation',{memberId,amount,existingId});
-    if(existingId){setDonations(prev=>prev.map(d=>d.id===existingId?{...d,amount}:d));}
-    else if(amount>0&&res.data){setDonations(prev=>[...prev,res.data]);}
-  };
-
-  const handleBorrowRequest=async(memberId,amount,reason)=>{
-    const{data}=await callApi('insertBorrowRequest',{memberId,amount,reason});
-    if(data)setBorrowRequests(prev=>[...prev,data]);
-  };
-
-  if(loading)return<Loading/>;
-  if(loadError)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#111",padding:20}}><div style={{background:"#1c1c1c",border:"1px solid #a83232",borderRadius:12,padding:24,maxWidth:500,width:"100%"}}><div style={{color:"#a83232",fontWeight:700,marginBottom:12}}>Load Error</div><div style={{fontSize:11,color:"#888",wordBreak:"break-all"}}>{loadError}</div></div></div>;
-  if(!role)return<Login members={members} adminPin={adminPin} onLogin={handleLogin}/>;
-  if(role==="member"){
-    const mp=allPayments[currentMember.id]||{};
-    return<MemberView member={currentMember} payments={mp} borrows={borrows} donations={donations}
-      borrowRequests={borrowRequests} extraCapital={extraCapital} lateFees={lateFees}
-      cw={cw} onLogout={handleLogout} onPinSaved={handleMemberPin}
-      onDonationUpdate={handleDonationUpdate} onBorrowRequest={handleBorrowRequest}
-      sessionToken={sessionToken}/>;
-  }
-  if(role==="admin")return<AdminView members={members} allPayments={allPayments} setAllPayments={setAllPayments}
-    borrows={borrows} setBorrows={setBorrows} donations={donations} borrowRequests={borrowRequests}
-    setBorrowRequests={setBorrowRequests} extraCapital={extraCapital} setExtraCapital={setExtraCapital}
-    lateFees={lateFees} setLateFees={setLateFees} cw={cw} onLogout={handleLogout}
-    adminPin={adminPin} onAdminPinSaved={setAdminPin} onMemberPinReset={handleMemberPinReset}
-    sessionToken={sessionToken}/>;
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null));
 </script>
 </body>
 </html>
